@@ -12,7 +12,7 @@ synthetic dataset, so it runs anywhere and holds no data from that network.
 | `packages/triage` | `network-behaviour`: publishes one immutable stream of behavioural episodes per UTC day, then orders the hosts worth a look. Ordering is sequencing, never risk |
 | `packages/ioc-report` | `ioc-report`: decides every IOC match in code (`review` or `explained`), then has a model write the case up. Code checks every reply, and its own text stands when a reply fails |
 | `docs/` | Case study, architecture and source contract (coming) |
-| `demo/` | A synthetic Zeek world and a one-command demo (coming) |
+| `demo/` | A synthetic Zeek network with planted cases, and `make demo`, which runs everything and checks each case |
 | `fixtures/zeek-real/` | Real Zeek output for a compatibility test (coming) |
 
 ## Develop
@@ -22,4 +22,5 @@ Needs [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer.
 ```shell
 make sync     # uv sync --all-packages --all-extras
 make check    # format, lint, types, generated docs and tests for both packages
+make demo     # the whole pipeline on a synthetic network, checked case by case (see demo/README.md)
 ```
