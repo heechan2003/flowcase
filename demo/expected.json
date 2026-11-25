@@ -1,0 +1,18 @@
+{
+  "_note": [
+    "What code must decide for each planted scenario in demo/generate.py (SCENARIOS), from the policy in packages/ioc-report/src/ioc_report/rules.py.",
+    "`rules`: the explaining rules of an explained case, or the keeping rules of a review case ('unexplained' when none holds and an item is left unexplained). `explained_by`: every rule that explains one of the case's contacts or flows, whatever the disposition.",
+    "Revised after the first run, for K3 only: K3 holds when the published triage stream has an episode on the flagged destination itself. Triage hashes an unnamed contact on a routed address under its ASN, so the beacon's episodes cannot count (no K3). Triage's relationship family raises an episode on a new rare name (the tunnel visitor's bore.pub, the lure domain), and its persistence family raises one every day on a rare name a host uses daily (the tunnel client's bore.pub), so those cases also carry K3. The tunnel client's contacts are still explained by E5."
+  ],
+  "cdn-edge": {"disposition": "explained", "rules": ["E4"], "explained_by": ["E4"]},
+  "beacon": {"disposition": "review", "rules": ["K4"], "explained_by": []},
+  "tunnel-client": {"disposition": "review", "rules": ["K3"], "explained_by": ["E5"]},
+  "tunnel-visitor": {"disposition": "review", "rules": ["K1", "K2", "K3"], "explained_by": []},
+  "download": {"disposition": "review", "rules": ["K5"], "explained_by": []},
+  "unanswered-inbound": {"disposition": "explained", "rules": ["E6"], "explained_by": ["E6"]},
+  "udp-to-tcp-family": {"disposition": "explained", "rules": ["E1"], "explained_by": ["E1"]},
+  "ech-outer-name": {"disposition": "explained", "rules": ["E2"], "explained_by": ["E2"]},
+  "flagged-domain": {"disposition": "review", "rules": ["K1", "K3"], "explained_by": []},
+  "tls-old-name": {"disposition": "explained", "rules": ["E3"], "explained_by": ["E3"]},
+  "tls-new-name": {"disposition": "review", "rules": ["unexplained"], "explained_by": []}
+}
