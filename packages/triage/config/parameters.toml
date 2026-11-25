@@ -1,0 +1,378 @@
+# Tier 2 — calibrated parameters
+#
+# Every tuned number in the product lives here. None appear in PRODUCT_CONTRACT.md.
+#
+# Each entry carries:
+#   value        the number in force
+#   fitted_on    date + data range it was fitted against, or "inherited" if never fitted
+#   target       the quantity it was chosen to achieve
+#   effect       the measured consequence, with a docs/CASE_STUDY.md section reference
+#   status       "calibrated" | "inherited-unjustified" | "provisional"
+#
+# status = "inherited-unjustified" means the value arrived from v1 of the contract and no
+# record exists of what it was chosen to achieve. That is the honest state of most of this
+# file. Making the debt countable is the point of writing it down.
+#
+# Changing any value requires the evidence bundle in docs/EVALUATION.md.
+
+schema_version = 1
+generated_doc = "docs/generated/parameters.md"
+
+# ---------------------------------------------------------------------------
+# Strength thresholds
+# ---------------------------------------------------------------------------
+
+[strength.moderate]
+value = 97.5
+fitted_on = "2026-08-25, held at its inherited value against the calibrated scale on 2026-08-09"
+target = "The share of a calibrated population an eligible unit must be more extreme than: the top 2.5%"
+effect = "Now means one thing for the relationship family, which is what primary-detectors-v5 bought. On a calibrated axis the threshold selects 2.50% by construction — 3,145 of 125,862 relationship units on 2026-08-09, against 3,573 (2.84%) under the ladder — so the value was kept rather than re-fitted. It is still NOT a percentile for DNS resolver novelty or persistence recurrence, which remain uncalibrated; CASE_STUDY §11 and the note under support.service_min_flows still apply to those. See CASE_STUDY, evaluations (2026-08-26-i4-relationship-calibration-primary-detectors-v5)."
+status = "calibrated"
+
+[strength.strong]
+value = 99.0
+fitted_on = "2026-08-25, held at its inherited value against the calibrated scale on 2026-08-09"
+target = "The top 1% of a calibrated population, separating E1 and E2 from E3"
+effect = "Selects 1.00% by construction — 1,255 of 125,862 relationship units on 2026-08-09. Under the ladder it was reached by 82.5% of relationship candidates via a hardcoded rung, which is why the tier distribution did not track strength. Same uncalibrated-family caveat as strength.moderate."
+status = "calibrated"
+
+[strength.audit_floor]
+value = 95.0
+fitted_on = "inherited"
+target = ""
+effect = "Near-threshold diagnostic floor; these observations stay out of the feed."
+status = "inherited-unjustified"
+
+# ---------------------------------------------------------------------------
+# Support gates
+# ---------------------------------------------------------------------------
+
+[support.client_min_active_buckets]
+value = 10
+fitted_on = "2026-08-24, history.client_day on 2026-08-09"
+target = "Retired. Was: whether an observed address is in scope for behavioural comparison"
+effect = "RETIRED in behavioural-support-v2, alongside client_min_flows. Not a gate even while it was one: the 1st percentile of active_5m_buckets is 288, the daily maximum, so this arm admitted every observed address. The live definition is population.support_definition, which is ungated; this value survives only inside RETIRED_SUPPORT_DEFINITION_V1 in network_behaviour.population, so a day published under primary-detectors-v2 can be replayed with the gate it actually used. CASE_STUDY §3."
+status = "retired"
+
+[support.client_min_flows]
+value = 100
+fitted_on = "2026-08-24, history.client_day over 2026-08-03..09"
+target = "Retired. Was: whether an observed address is in scope for behavioural comparison"
+effect = "RETIRED in behavioural-support-v2. Decided nothing: 0 to 2 addresses per day of ~12,200 were admitted by this arm alone, the bucket arm having already admitted them all. Between the two arms the definition excluded 1 to 4 addresses a day, and what it excluded is the argument against it — two of the three excluded on 2026-08-09 had pulled 38 MB and 52 MB through a single service in two flows. Kept for replay only, in RETIRED_SUPPORT_DEFINITION_V1. CASE_STUDY §3, §6."
+status = "retired"
+
+[support.service_min_active_buckets]
+value = 0
+fitted_on = "2026-08-25, history.client_service_day on 2026-08-09"
+target = "Retired. Was: whether a (client, service) pair is in scope for relationship and persistence detection"
+effect = "RETIRED in primary-detectors-v4. Was 2. With service_min_flows and large_flow_count > 0 it excluded 51,172 of 156,933 service-days on 2026-08-09 (32.61%) before any strength was computed. This arm alone carried 21,207 admissions, so unlike the client gate it was not decorative — it was a large unjustified gate with no test coverage. No longer read by any file in src/. See CASE_STUDY, evaluations (2026-08-25-r1-support-gate-removed-primary-detectors-v3-behavioural-support-v2)."
+status = "retired"
+
+[support.service_min_flows]
+value = 0
+fitted_on = "2026-08-25, history.client_service_day on 2026-08-09"
+target = "Retired. Was: whether a (client, service) pair is in scope for relationship and persistence detection"
+effect = "RETIRED in primary-detectors-v4. Was 5. Decided 4,536 admissions alone. What the gate dropped is the reason it went: 36.90 GB across the excluded service-days, including 32 that moved 100 MiB or more across 23 addresses — largest 2.32 GB — every one with large_flow_count zero, one active bucket and one to four flows. A bulk transfer the long-flow source did not record, dropped for looking like an idle session. No longer read by any file in src/."
+status = "retired"
+
+# ---------------------------------------------------------------------------
+# Long-flow corroboration
+# ---------------------------------------------------------------------------
+
+[long_flow.min_bytes]
+value = 1000000
+fitted_on = "inherited"
+target = ""
+effect = "Removes 0.16% of flow.long_flows; the table already contains only long flows. Nearly every address with traffic of its own has a qualifying flow (92% on 2026-10-21; 80% of active addresses on 2026-08-11), and half of the service-days carrying one on 2026-08-09 moved under 5 MB in under half a minute. Still unjustified and still not selective; what changed in episode-ordering-v4 is that clearing it is no longer sufficient to promote a tier, so it now admits context rather than deciding a tier. CASE_STUDY §8."
+status = "inherited-unjustified"
+
+[long_flow.corroboration_rule]
+value = "presence"
+fitted_on = "inherited"
+target = ""
+effect = "RETIRED in episode-ordering-v4 / primary-detectors-v6, replaced by long_flow.corroboration_strength. Was: presence of any filtered large flow promotes an episode a full tier. It promoted on a condition true of 80% of active addresses and 26.01% of eligible relationship units on 2026-08-09, and §2 of the I4 bundle found it invariant under host-label permutation — it carried no information about the host it was attached to. No longer read by any file in src/."
+status = "retired"
+
+[long_flow.corroboration_strength]
+value = 97.5
+fitted_on = "2026-08-31, history.client_service_day over 2026-08-09 with reference pools from the preceding 90 days"
+target = "How unusual a large flow must be for the host that made it before it promotes an episode a full tier: the top 2.5% of that host's own prior large flows, on size or on duration"
+effect = "Corroboration went from a condition true of 26.01% of eligible relationship units to one true of 0.60% (818 -> 19 of 3,145) on 2026-08-09, and the top tier from 495 episodes to 49. Episodes and queued hosts are unchanged at 4,120 over 860: this moves tiers, not eligibility. The smaller number is not the point — under the §2 permutation null the retired presence condition was invariant to the host label (26.01% observed against 25.89% permuted) and this one moves (0.60% against 1.84%), so the top tier now responds to the host rather than to the shape of the data. Cost measured in the same bundle and not fixed: the tied share of the queue rose 59.07% to 70.2%, because the ordering key's corroboration term now splits 49 episodes rather than 495. At the client-day grain the size axis also remains close to invariant (4.98% against 5.10%), because a daily maximum over many flows is compared against a pool of individual ones. CASE_STUDY §8. See CASE_STUDY, evaluations (2026-08-31-r2-large-flow-corroboration-qualified-primary-detectors-v6)."
+status = "calibrated"
+
+[long_flow.reference_days]
+value = 90
+fitted_on = "2026-08-31, history.client_service_day over 2026-08-09"
+target = "The window of a host's own large flows a new one is qualified against"
+effect = "Held equal to calibration.population_lookback_days rather than introducing a second window with a second justification. Not binding in this deployment yet: retained history began 2026-06-29, so on 2026-08-09 the window covers all 42 retained days and every pool is as deep as the data allows — median 287 prior large flows per host, p10 68, p90 760. It begins to bind once retained history exceeds 90 days, which is the point of setting it below the 365-day retention: a host is qualified against what it has been doing lately, not against a year ago. CASE_STUDY §8."
+status = "calibrated"
+
+[long_flow.reference_min_units]
+value = 40
+fitted_on = "2026-08-31, arithmetic reachability, checked against history.client_service_day over 2026-08-09"
+target = "Refuse to qualify a large flow when the host has too few of its own to place one in a 2.5% tail"
+effect = "Costs 18 qualifying units of 1,150 on 2026-08-09 (1.6%), and stops 666 of the 29,488 service-days carrying a large flow (2.26%) from being qualified at all. The floor is arithmetic: empirical_percentile_sorted is a midpoint rank, so the most extreme value in a pool of n scores (n - 0.5)/n and a pool below 20 cannot place anything in a 2.5% tail; 40 leaves the tail two units of resolution. It costs no episode a tier it could otherwise have reached — a host too new to have 40 prior large flows has cold or limited history, and tier_confidence_cap already caps such an episode below E1 (docs/generated/ordering.md). bands.min_cohort applies the same guard (R5, baseline-calibration-v6). CASE_STUDY §4, §8."
+status = "calibrated"
+
+# ---------------------------------------------------------------------------
+# DNS
+# ---------------------------------------------------------------------------
+
+[dns.min_packets]
+value = 100
+fitted_on = "inherited"
+target = ""
+effect = "Applies to ratio metrics only, against the client-day denominator. Still unjustified, and re-measured 2026-10-23 on the DNS population primary-detectors-v8 scores (clients that sent a query, DNS servers left out): 47-49% of those client-days carry 100 query and response packets, over 2026-08-24..30 and 2026-10-15..21 alike. The earlier statement that it suppressed nine client-days in ten counted addresses that sent no query at all (CASE_STUDY, superseded values). CASE_STUDY §9."
+status = "inherited-unjustified"
+[dns.min_sessions]
+value = 50
+fitted_on = "inherited"
+target = ""
+effect = "Applies to ratio metrics only, against the client-day denominator. Still unjustified. Re-measured 2026-10-23 on the DNS population primary-detectors-v8 scores: client-days carry a median of about 30 sessions and a p90 of 800-1,650, and 37% (2026-08-24..30) to 44% (2026-10-15..21) reach 50. Deliberately NOT reused as dns.new_resolver_min_sessions, which counts one resolver rather than a client-day. CASE_STUDY §9."
+status = "inherited-unjustified"
+[dns.new_resolver_min_sessions]
+value = 10
+fitted_on = "2026-08-31, flow.dns_pairs over 2026-08-10..2026-08-30; re-measured 2026-10-23"
+target = "How much a new resolver must carry on day D, in sessions on that resolver alone, before its novelty is worth reporting"
+effect = "Implemented in primary-detectors-v7, with a second condition that is not a number: a client with no prior DNS day reports no novelty at all. The v7 fit measured new_resolver firing for 60-85% of the addresses the source carried; most of those addresses had sent no query (804 of 1,057 on 2026-08-30), which primary-detectors-v8 removes before novelty is computed, so a stray unsolicited response no longer makes a prior DNS day either. Re-measured 2026-10-23 on the clients that query, without DNS servers: a queried (client, resolver) pair carries a median of 12-15 sessions a day and a p75 of 24-26, so at 10 a new resolver still has to be used about as heavily as an ordinary one. Value kept. What it does NOT repair: the novelty strength is still 1 - broadest/N, not a calibrated tail; N is now the DNS population, watched by drift.dns_population_step_fraction. CASE_STUDY §9; the v7 fitting record is in CASE_STUDY, superseded values."
+status = "calibrated"
+
+[dns.server_min_resolvers]
+value = 100
+fitted_on = "2026-10-23, flow.dns_pairs over 2026-07-01..2026-10-22"
+target = "A client-day that sent queries to at least this many distinct resolvers is a DNS server and is out of the DNS family"
+effect = "primary-detectors-v8. Client-days with a query sit at p50 3 and p90 4 resolvers; 556 fall in [10, 100), 10 in [100, 1,000) and 421 at 1,000 or more, on 7 addresses (3-5 a day) that carry 15-31% of complete sessions. Those addresses are campus resolvers asking authoritative servers, every new one of which read as a new resolver: they carried 129 of the 335 DNS episodes published 2026-09-01..10-18, one host on 43 of 45 days. Anywhere in [100, 1,000) separates the same addresses. CASE_STUDY §9."
+status = "calibrated"
+
+[dns.service_time_role]
+value = "shared context"
+fitted_on = "2026-08-31, flow.dns_pairs on 2026-08-30"
+target = "Whether mean_service_nanos may establish a DNS episode, or only accompany one"
+effect = "Demoted to context in primary-detectors-v7. Service time is what a resolver did, measured through whichever clients happened to ask it: 56.5% of the variance in per-(client, resolver) mean service time sat between resolvers rather than within them on 2026-08-30, so when a resolver slows every client behind it deviates on the same day and one incident arrives as a burst of candidates attributed to hosts. The metric is still emitted as DNS_SERVICE_TIME evidence with its strength; it no longer counts toward the strong-or-two-moderate eligibility test and no longer sets the family strength. Not a number, and recorded here for the same reason long_flow.corroboration_rule was. The decomposition was taken over pairs on resolvers that three or more addresses used, which an address that sent no query cannot be part of; it was not re-measured. CASE_STUDY, superseded values."
+status = "calibrated"
+
+# ---------------------------------------------------------------------------
+# Baselines and calibration
+# ---------------------------------------------------------------------------
+
+[baseline.recent_days]
+value = 7
+fitted_on = "inherited"
+target = ""
+effect = "Median absolute deviation over 7 points is high-variance; the empirical percentile step partly launders it."
+status = "inherited-unjustified"
+
+[baseline.long_days_min]
+value = 30
+fitted_on = "inherited"
+target = ""
+effect = ""
+status = "inherited-unjustified"
+
+[baseline.long_days_max]
+value = 90
+fitted_on = "inherited"
+target = ""
+effect = ""
+status = "inherited-unjustified"
+
+[calibration.min_prior_days]
+value = 8
+fitted_on = "inherited"
+target = ""
+effect = ""
+status = "inherited-unjustified"
+
+[calibration.max_prior_days]
+value = 120
+fitted_on = "inherited"
+target = ""
+effect = ""
+status = "inherited-unjustified"
+
+[calibration.population_lookback_days]
+value = 90
+fitted_on = "inherited"
+target = ""
+effect = "Window for the historical prevalence denominator. Corrected 2026-08-24 to count clients from history.client_service_day rather than history.client_day: over this window that is 6,929 rather than 12,237, a 1.77x inflation removed. baseline-calibration-v3."
+status = "inherited-unjustified"
+
+[confidence.day_edges]
+value = [7, 14, 30]
+fitted_on = "inherited"
+target = ""
+effect = "Currently a deployment clock, not a host property: every address crossed the 31-day boundary on the same night because retained history began 2026-06-29. Constant within a day, so useless as a ranking tiebreaker. CASE_STUDY §11."
+status = "inherited-unjustified"
+
+# ---------------------------------------------------------------------------
+# Peer bands
+# ---------------------------------------------------------------------------
+
+[bands.byte_edges]
+value = [1048576, 10485760, 104857600, 1073741824]
+fitted_on = "inherited"
+target = ""
+effect = "Retained in baseline-calibration-v6. Measured 2026-09-08 over the 7-day median ending 2026-08-09 with the degenerate minutes dimension dropped: 18 of 25 bytes-by-destination bands occupied, largest 1,505 of 12,235 addresses (12.3%). CASE_STUDY §4."
+status = "inherited-unjustified"
+
+[bands.minute_edges]
+value = [15, 60, 240, 720]
+fitted_on = "inherited"
+target = ""
+effect = "RETIRED in baseline-calibration-v6. Was: a third peer-band dimension alongside bytes and destinations. Measured 2026-08-09 (single day) and re-measured 2026-09-08 over the 7-day median every band is actually built from: 96.6% and 98.98% of addresses respectively sit at 1,440 active minutes, the daily maximum, so the dimension never separated a cohort and only fragmented the ones bytes and destinations already separate. Dropping it took occupied bands from 23 of 125 to 18 of 25 and roughly halved the addresses sitting below any usable cohort size (below n=40: 91, against demonstrably more under the retired 3-dimensional band at the same floor). No longer read by any file in src/. CASE_STUDY §3, §4."
+status = "retired"
+
+[bands.destination_edges]
+value = [5, 20, 100, 500]
+fitted_on = "inherited"
+target = ""
+effect = "Retained in baseline-calibration-v6. See bands.byte_edges for the current occupancy measurement; the two axes are used together as the band key."
+status = "inherited-unjustified"
+
+[bands.min_cohort]
+value = 40
+fitted_on = "2026-09-08, history.client_day over 2026-08-03..09, bytes-by-destination bands with active_minutes dropped"
+target = "Refuse a peer-based strength when the cohort is too small for the threshold to be reachable"
+effect = "Implemented in baseline-calibration-v6. A midpoint-rank percentile over n peers cannot exceed (n-0.5)/n, so a cohort below 20 cannot place any address in the moderate_strength (97.5) tail regardless of behaviour, and 20 itself passes only the single most extreme peer with nothing to spare. Held equal to long_flow.reference_min_units rather than the exact boundary, for the same reason: two units of resolution above it. Costs 91 of 12,235 addresses (0.74%) their peer percentile on this measurement, across 4 of 18 occupied bands — the same guard at the exact boundary (20) would have cost only 6, across 1 band. Those addresses still register a self-comparison where their own history supports one; what they lose is the peer term, and metric_strength = min(self, peer) already required both, so the practical effect is that a metric with no self-history AND a peer cohort below 40 now reports no strength instead of one no cohort that size could ever support. CASE_STUDY §4."
+status = "calibrated"
+
+# ---------------------------------------------------------------------------
+# Fusion
+# ---------------------------------------------------------------------------
+
+[fusion.default_gap_minutes]
+value = 15
+fitted_on = "inherited"
+target = ""
+effect = ""
+status = "inherited-unjustified"
+
+[fusion.extended_gap_minutes]
+value = 30
+fitted_on = "inherited"
+target = ""
+effect = "Applies to long transfers and hourly DNS."
+status = "inherited-unjustified"
+
+# ---------------------------------------------------------------------------
+# Data-quality tolerances
+# ---------------------------------------------------------------------------
+
+[reconciliation.relative_tolerance]
+value = 0.05
+fitted_on = "inherited"
+target = ""
+effect = "Activity/rate reconciliation."
+status = "inherited-unjustified"
+
+[duplicate.grain_tolerance]
+value = 0.01
+fitted_on = "inherited"
+target = ""
+effect = ""
+status = "inherited-unjustified"
+
+# ---------------------------------------------------------------------------
+# Population and drift — new
+# ---------------------------------------------------------------------------
+
+[population.support_definition]
+value = "unique_services >= 1"
+fitted_on = "2026-10-23, history.client_day and history.client_service_day over 2026-09-01..2026-10-18, and the published stream for the same days"
+target = "Which observed addresses the activity families (transfer, fanout) score and rank against: those with at least one row that resolved to a service"
+effect = "behavioural-support-v3. Not a threshold on quietness — one service row admits an address — but whether any of its traffic can be interpreted. 60-75% of observed addresses carry only unaddressed Web Browsing rows with no server, port or domain (CASE_STUDY §3); under v2 they were scored as 'unusual external transfer' and 'external fanout change' on those bytes, produced 11 of 390,056 published episodes (2026-09-01..10-18), and made up 6,801 of the 6,967 members of the lowest destination band's peer pool on 2026-10-14, the pool 166 addressed hosts were ranked against. baseline-calibration-v7 draws peer and calibration pools from the same admitted client-days. That, not the scope gate, is what moves the output: re-scored from the same history on 2026-10-14 and 10-18, no removed episode was on an out-of-scope address, and against peers with interpretable traffic transfer fell 63 -> 20 and 112 -> 18, fanout 101 -> 35 and 130 -> 28, and E1 53 -> 25 and 91 -> 18 (evidence bundle 2026-10-23). DNS is not gated: activity_1m carries no DNS rows, so a DNS-only address has no service row, and the DNS family scores its own population (CASE_STUDY §9). The admitted population is exactly the scored population drift.population_step gates. v1 (active_5m_buckets >= 10 or flow_count >= 100) and v2 (ungated) are kept in network_behaviour.population for replay. CASE_STUDY §2, §3."
+status = "calibrated"
+
+[drift.population_step_fraction]
+value = 0.35
+fitted_on = "2026-10-23, history.client_service_day over 2026-06-29..2026-10-18, 75 same-weekday pairs"
+target = "Fail closed when the scored population (addresses with at least one service row) moves more than this fraction against the most recent retained day with the same UTC weekday"
+effect = "drift-gates-v2. The scored population tracks the week (about 2,800 addresses on a UTC Saturday, 4,500 on a Tuesday; day-over-day median 13.0%, max 33.8%), so it is compared weekday to weekday: median 1.67%, p90 4.26%, max 30.87% (2026-10-04 -> 10-11, the public-holiday rebound), and at most 5.4% for every pair outside those weeks, including pairs 28-35 days apart across retention gaps. 0.35 passes all 75 and fails a halving; the margin over the holiday is 4.1 points. Replaces drift-gates-v1's 0.44, which gated every observed address: 60-75% of those carry only unaddressed rows (CASE_STUDY §3), and the two seams v1 was widened for (0.20 -> 0.30 on 2026-09-10, -> 0.44 on 2026-09-27) were steps in those addresses alone, while the scored population rose. CASE_STUDY §2. See CASE_STUDY, evaluations (2026-10-23-drift-gates-v2-scored-population)."
+status = "calibrated"
+
+[drift.composition_tvd]
+value = 0.05
+fitted_on = "2026-08-25, history.client_service_day over 2026-06-29..2026-08-09, 36 comparisons"
+target = "Fail closed when the service_basis mix moves further than this against the most recent published day"
+effect = "Catches the source measuring a different thing rather than a different amount — an upstream change that stopped resolving domains would move every service identity off the domain basis (98.75% of rows on 2026-08-09) without touching the address count. Legitimate day-over-day TVD measured median 0.00086, p90 0.00234, max 0.00281. FITTED ON THE LEGITIMATE SIDE ONLY: the 2026-08-11 step is outside retained history and outside the source detail window, so no observed failure calibrates the other side. At ~18x the loudest legitimate day this is a guard against gross redefinition, not a tuned detector."
+status = "provisional"
+
+[drift.dns_population_step_fraction]
+value = 0.35
+fitted_on = "2026-10-23, flow.dns_pairs over 2026-07-01..2026-10-22, 107 same-weekday pairs"
+target = "Disable the DNS family for the day, never the day itself, when the DNS population (clients that sent a query, DNS servers left out) moves more than this against the most recent day with the same UTC weekday"
+effect = "drift-gates-v3. The DNS population is about 308 addresses a day and follows the week (Saturday 221, Wednesday 326). Same-weekday movement: median 4.8%, p90 14.9%. Above 20% sit 2026-09-14 (24%, incomplete source ingestion), 09-21 (32%, against it), 10-12 (21%, a public holiday), and 07-23 (70%) and 07-30 (43%), not explained; 0.35 passes all but those two. A failure costs one day of DNS episodes, so the tolerance sits nearer the legitimate range than drift.population_step_fraction can. Before v3 nothing watched this population, and backscatter on 864 to 64,000 addresses a day moved the DNS denominator unseen. CASE_STUDY §9. See CASE_STUDY, evaluations (2026-10-23-dns-population-primary-detectors-v8)."
+status = "calibrated"
+
+# ---------------------------------------------------------------------------
+# Timing — new, required before any periodicity detector
+# ---------------------------------------------------------------------------
+
+[timing.min_mean_gap_minutes]
+value = 1.5
+fitted_on = "2026-08-18, flow.activity_1m"
+target = "Separate a schedule from a held-open connection"
+effect = "Without it, 6,234 of 6,656 low-variance pairs (93.7%) are contiguous blocks rather than scheduled contacts. The source records occupied minute buckets, not connection events. CASE_STUDY §10."
+status = "calibrated"
+
+[timing.max_cv]
+value = 0.15
+fitted_on = "2026-08-18, flow.activity_1m"
+target = "Select machine-regular inter-contact timing"
+effect = "With min_mean_gap applied, yields 422 pairs from a base of 173,707. Survivors of the full conjunction show periods of 15, 16, 60, 60, 60, 60, 60 and 120 minutes. CASE_STUDY §10."
+status = "provisional"
+
+# ---------------------------------------------------------------------------
+# Shadow beacon profile — R6/I10. Evaluation-harness only: read by
+# scripts/evaluate.py shadow and network_behaviour.evaluation.shadow, never by the
+# publisher, run-day, or anything that writes to data/network_behaviour.duckdb.
+# ---------------------------------------------------------------------------
+
+[shadow.beacon_min_active_buckets]
+value = 6
+fitted_on = "2026-09-08, history.client_service_day over 2026-08-09"
+target = "Fewest active 5-minute buckets before an inter-bucket CV is a meaningful measure of regularity"
+effect = "Swept 3 to 8. Below 6, pairs with only 3-5 active buckets pass the regularity stage on coincidence — a CV over one or two gaps is not a measurement — inflating candidates past the rarity stage from 17 to 45 at 3, visibly noisier and less periodic. Not a rescaling of the review's minute-grain floor (12 active minutes): minute and bucket occupancy are not related by a fixed factor. CASE_STUDY §13."
+status = "calibrated"
+
+[shadow.beacon_max_active_buckets]
+value = 80
+fitted_on = "2026-09-08, history.client_service_day over 2026-08-09"
+target = "Upper bound matching the review's 400-active-minute ceiling, held at the same ratio to the day"
+effect = "Excludes near-continuous, high-frequency relationships from a shape meant to select infrequent contact. Not independently swept; carried over from the review's own choice at the equivalent share of the day (400/1440 minutes ~ 80/288 buckets), which is a weaker basis than a value fitted directly against this measurement. CASE_STUDY §13."
+status = "calibrated"
+
+[shadow.beacon_max_cv]
+value = 0.15
+fitted_on = "2026-08-18, flow.activity_1m (timing.max_cv), reused unchanged"
+target = "Select machine-regular inter-contact timing"
+effect = "A coefficient of variation is already unitless, so this crosses the minute-to-bucket grain change without rescaling. Reused rather than re-derived at bucket grain. CASE_STUDY §10, §13."
+status = "calibrated"
+
+[shadow.beacon_min_mean_gap_buckets]
+value = 2.0
+fitted_on = "2026-09-08, history.client_service_day over 2026-08-09"
+target = "Separate a schedule from a held-open connection, at bucket grain"
+effect = "NOT a rescaling of timing.min_mean_gap_minutes (1.5 minutes): a bucket-grain gap of 1 already implies up to 5 minutes between activity, so the minute-grain contiguity trap does not transfer directly. 2 buckets (10 minutes) is a separately chosen floor; verified as a real constraint here (32,360 -> 714 pairs combined with max_cv) but not independently swept against alternative floors. CASE_STUDY §13."
+status = "calibrated"
+
+[shadow.beacon_min_span_hours]
+value = 6.0
+fitted_on = "2026-08-18, flow.activity_1m, reused unchanged"
+target = "Sustained across a meaningful part of the day, not a burst"
+effect = "A span is a span regardless of bucket grain, so this crosses unchanged from the review's own figure. Verified as a real constraint on this measurement: 714 -> 684 pairs at the regularity stage. CASE_STUDY §13."
+status = "calibrated"
+
+[shadow.beacon_max_bytes_per_active_bucket]
+value = 250000
+fitted_on = "2026-09-08, history.client_service_day over 2026-08-09"
+target = "Low volume per contact, at bucket grain"
+effect = "Scaled from the review's 50 KB per active MINUTE by 5x, assuming uniform intra-bucket activity — an assumption, not an independent measurement, and the weakest-founded threshold in this profile. Verified as a real constraint here: 684 -> 605 pairs. Treat with lower confidence than min_span_hours or max_cv. CASE_STUDY §13."
+status = "calibrated"
+
+[shadow.beacon_max_campus_fanin]
+value = 5
+fitted_on = "2026-08-18, flow.activity_1m, reused unchanged"
+target = "A destination almost nobody else on campus uses"
+effect = "Reused verbatim from the review's own choice — a raw headcount, not a population share, and therefore tied to this deployment's size the same way the review's was. The most selective stage measured here: 605 -> 17 candidates. CASE_STUDY §13."
+status = "calibrated"

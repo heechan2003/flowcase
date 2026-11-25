@@ -1,0 +1,13 @@
+-- Record which baseline generation published a day.
+--
+-- `baseline-calibration-v2` was defined, exported and carried on every BaselineBatch, and read by
+-- nothing: it never reached ops.pipeline_run and never entered the published-day compatibility
+-- check. A change to how baselines are computed could therefore ship with no version marker at
+-- all, which is the defect this column closes before the reconstruction steps start moving
+-- denominators.
+--
+-- Strictly additive. Rows published before this migration keep NULL, which reads as "published
+-- before baseline versioning existed" and stays compatible — the forward-only rerun policy
+-- requires that published days remain readable, and those days cannot be re-derived: source
+-- detail expires in roughly fifteen days.
+ALTER TABLE ops.pipeline_run ADD COLUMN baseline_version VARCHAR;

@@ -1,0 +1,27 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+build/
+dist/
+*.egg-info/
+
+# Runtime state and source-derived artifacts
+data/
+*.duckdb
+*.duckdb.*
+*.parquet
+exports/
+logs/
+
+# Generated feeds — data, never committed
+candidate-feeds/

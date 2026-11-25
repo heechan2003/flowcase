@@ -1,0 +1,12 @@
+ALTER TABLE ops.pipeline_run ADD COLUMN query_versions_json VARCHAR;
+ALTER TABLE ops.pipeline_run ADD COLUMN aggregation_version VARCHAR;
+ALTER TABLE ops.pipeline_run ADD COLUMN reconciliation_version VARCHAR;
+ALTER TABLE ops.pipeline_run ADD COLUMN reconciliation_relative_delta DOUBLE;
+ALTER TABLE ops.pipeline_run ADD COLUMN source_duplicate_fraction DOUBLE;
+ALTER TABLE ops.pipeline_run ADD COLUMN staged_client_rows UBIGINT;
+ALTER TABLE ops.pipeline_run ADD COLUMN staged_service_rows UBIGINT;
+ALTER TABLE ops.pipeline_run ADD COLUMN query_count UINTEGER;
+ALTER TABLE ops.pipeline_run ADD COLUMN source_read_rows UBIGINT;
+ALTER TABLE ops.pipeline_run ADD COLUMN source_read_bytes UBIGINT;
+ALTER TABLE ops.pipeline_run ADD COLUMN storage_bytes_before UBIGINT;
+ALTER TABLE ops.pipeline_run ADD COLUMN projected_storage_bytes UBIGINT;

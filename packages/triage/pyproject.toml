@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "network-behaviour"
+version = "0.2.0"
+description = "Deterministic behavioural triage for observed network clients"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "clickhouse-connect>=0.8,<1",
+    "duckdb>=1.2,<2",
+    "pyarrow>=20,<22",
+    "python-dotenv>=1.1,<2",
+    "tldextract==5.3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.15,<2",
+    "pytest>=8.3,<9",
+    "ruff>=0.11,<1",
+]
+
+[project.scripts]
+network-behaviour = "network_behaviour.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["network_behaviour*"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["clickhouse_connect", "clickhouse_connect.*", "pyarrow", "pyarrow.*"]
+ignore_missing_imports = true

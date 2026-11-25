@@ -1,0 +1,155 @@
+[
+  {
+    "indicator_type": "domain",
+    "indicator": "tunnel.example.com",
+    "affected_host": "192.0.2.10",
+    "threatfox": {
+      "confidence": 100,
+      "first_seen_utc": "2026-09-15T10:00:00Z",
+      "last_seen_utc": "2026-09-15T10:00:00Z",
+      "malware": "win.nanocore",
+      "threat_type": "botnet_cc"
+    },
+    "evidence": {
+      "activity": [
+        {
+          "time": "2026-09-15 10:00:00",
+          "client_ip": "192.0.2.10",
+          "server_ip": "1.1.1.1",
+          "server_port": 7835,
+          "ip_protocol": 4,
+          "transport_protocol": 6,
+          "sni": "",
+          "dns": "tunnel.example.com",
+          "root_domain": "example.com",
+          "down_bytes": 7920,
+          "up_bytes": 7200,
+          "down_packets": 120,
+          "up_packets": 120,
+          "flow_count": 1,
+          "asn": "13335",
+          "asn_organization": "Example Network",
+          "country": "Australia"
+        }
+      ],
+      "long_flows": [
+        {
+          "start": "2026-09-15 09:00:00.000000",
+          "finish": "2026-09-15 12:00:00.000000",
+          "duration_sec": 10800.0,
+          "flow_id": "00000000-0000-4000-8000-000000000001",
+          "client_ip": "192.0.2.10",
+          "server_ip": "1.1.1.1",
+          "client_port": 50000,
+          "server_port": 7835,
+          "protocol": 6,
+          "down_bytes": 2000000,
+          "up_bytes": 1500000,
+          "down_packets": 1000,
+          "up_packets": 900,
+          "classifier": "",
+          "type": "_unknown"
+        }
+      ],
+      "dns_pairs": []
+    },
+    "match_id": "m_fixture_0001",
+    "created_at": "2026-09-17T01:00:00Z"
+  },
+  {
+    "indicator_type": "domain",
+    "indicator": "tunnel.example.com",
+    "affected_host": "192.0.2.10",
+    "threatfox": {
+      "confidence": 100,
+      "first_seen_utc": "2026-09-15T10:01:00Z",
+      "last_seen_utc": "2026-09-15T10:01:00Z",
+      "malware": "win.nanocore",
+      "threat_type": "botnet_cc"
+    },
+    "evidence": {
+      "activity": [
+        {
+          "time": "2026-09-15 10:01:00",
+          "client_ip": "192.0.2.10",
+          "server_ip": "1.1.1.1",
+          "server_port": 7835,
+          "ip_protocol": 4,
+          "transport_protocol": 6,
+          "sni": "",
+          "dns": "tunnel.example.com",
+          "root_domain": "example.com",
+          "down_bytes": 7920,
+          "up_bytes": 7200,
+          "down_packets": 120,
+          "up_packets": 120,
+          "flow_count": 1,
+          "asn": "13335",
+          "asn_organization": "Example Network",
+          "country": "Australia"
+        }
+      ],
+      "long_flows": [
+        {
+          "start": "2026-09-15 09:00:00.000000",
+          "finish": "2026-09-15 12:00:00.000000",
+          "duration_sec": 10800.0,
+          "flow_id": "00000000-0000-4000-8000-000000000001",
+          "client_ip": "192.0.2.10",
+          "server_ip": "1.1.1.1",
+          "client_port": 50000,
+          "server_port": 7835,
+          "protocol": 6,
+          "down_bytes": 2000000,
+          "up_bytes": 1500000,
+          "down_packets": 1000,
+          "up_packets": 900,
+          "classifier": "",
+          "type": "_unknown"
+        }
+      ],
+      "dns_pairs": []
+    },
+    "match_id": "m_fixture_0002",
+    "created_at": "2026-09-17T01:00:00Z"
+  },
+  {
+    "indicator_type": "ip:port",
+    "indicator": "9.9.9.9:443",
+    "affected_host": "198.51.100.23",
+    "threatfox": {
+      "confidence": 75,
+      "first_seen_utc": "2026-09-14T08:12:00Z",
+      "last_seen_utc": "2026-09-14T08:12:00Z",
+      "malware": "win.nanocore",
+      "threat_type": "botnet_cc"
+    },
+    "evidence": {
+      "activity": [
+        {
+          "time": "2026-09-14 08:12:00",
+          "client_ip": "198.51.100.23",
+          "server_ip": "9.9.9.9",
+          "server_port": 443,
+          "ip_protocol": 4,
+          "transport_protocol": 17,
+          "sni": "cloudflare-ech.com",
+          "dns": "",
+          "root_domain": "cloudflare-ech.com",
+          "down_bytes": 48213,
+          "up_bytes": 9120,
+          "down_packets": 120,
+          "up_packets": 120,
+          "flow_count": 1,
+          "asn": "13335",
+          "asn_organization": "Example Network",
+          "country": "Australia"
+        }
+      ],
+      "long_flows": [],
+      "dns_pairs": []
+    },
+    "match_id": "m_fixture_0003",
+    "created_at": "2026-09-15T01:00:00Z"
+  }
+]

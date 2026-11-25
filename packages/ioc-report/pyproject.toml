@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ioc-report"
+version = "0.1.0"
+description = "Context and a local-model write-up for ThreatFox IOC matches on a university network"
+readme = "README.md"
+requires-python = ">=3.12"
+# network-behaviour is the workspace member packages/triage (see [tool.uv.sources]).
+dependencies = [
+    "network-behaviour",
+    # The case reports' PDF engine. It embeds New Computer Modern, so it needs no LaTeX or fonts.
+    "typst==0.15.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.15,<2",
+    "pytest>=8.3,<9",
+    "ruff>=0.11,<1",
+]
+
+[project.scripts]
+ioc-report = "ioc_report.cli:main"
+ioc-case-report = "ioc_report.cli:case_main"
+
+[tool.uv.sources]
+network-behaviour = { workspace = true }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ioc_report = ["sql/*.sql", "*.typ"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# The evaluation set is a table: one case per row reads better than wrapped constructors.
+"evals/cases.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests", "evals"]
+# network_behaviour ships no py.typed marker; type-check against its source instead.
+mypy_path = "../triage/src"
+
+[[tool.mypy.overrides]]
+module = ["clickhouse_connect", "clickhouse_connect.*", "pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
