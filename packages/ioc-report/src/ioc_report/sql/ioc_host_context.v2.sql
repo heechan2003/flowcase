@@ -11,11 +11,11 @@ SELECT
     client_ip,
     bucket,
     root_domain,
-    max(has({servers:Array(String)}, server_ip)) AS flagged,
-    uniqExact(time) AS active_minutes,
-    uniqExact(server_ip) AS addresses,
-    sum(toUInt64(greatest(up_bytes, 0))) AS sent_bytes,
-    sum(toUInt64(greatest(down_bytes, 0))) AS received_bytes
+    bool_or(list_contains({servers:Array(String)}, server_ip)) AS flagged,
+    count(DISTINCT time) AS active_minutes,
+    count(DISTINCT server_ip) AS addresses,
+    CAST(sum(greatest(up_bytes, 0)) AS UBIGINT) AS sent_bytes,
+    CAST(sum(greatest(down_bytes, 0)) AS UBIGINT) AS received_bytes
 FROM (
     SELECT
         client_ip,
@@ -24,12 +24,15 @@ FROM (
         time,
         up_bytes,
         down_bytes,
-        toUInt32(intDiv(toUnixTimestamp(time), 300)) AS bucket
+        CAST(CAST(epoch(time) AS BIGINT) // 300 AS UINTEGER) AS bucket
     FROM flow.activity_1m
-    PREWHERE time >= {start:DateTime('UTC')} AND time < {end:DateTime('UTC')}
-    WHERE has({hosts:Array(String)}, client_ip) AND flow_count > 0
+    WHERE time >= {start:DateTime('UTC')} AND time < {end:DateTime('UTC')}
+      AND list_contains({hosts:Array(String)}, client_ip) AND flow_count > 0
 )
-WHERE has({windows:Array(String)}, concat(client_ip, ' ', toString(bucket)))
+WHERE list_contains({windows:Array(String)}, concat(client_ip, ' ', CAST(bucket AS VARCHAR)))
 GROUP BY client_ip, bucket, root_domain
+QUALIFY row_number() OVER (
+    PARTITION BY client_ip, bucket
+    ORDER BY flagged DESC, active_minutes DESC, root_domain
+) <= 60
 ORDER BY client_ip, bucket, flagged DESC, active_minutes DESC, root_domain
-LIMIT 60 BY client_ip, bucket

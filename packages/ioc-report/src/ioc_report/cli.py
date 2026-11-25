@@ -45,7 +45,13 @@ from ioc_report.knowledge import (
     listing_for,
     name_facts,
 )
-from ioc_report.live import LiveContext, LiveSession, plan_days
+from ioc_report.live import (
+    MINUTE_HORIZON_DAYS,
+    LiveContext,
+    LiveSession,
+    minute_horizon,
+    plan_days,
+)
 from ioc_report.model import ModelClient, ModelError, OllamaClient, OllamaConfig
 from ioc_report.narrative import NOT_WRITTEN, Narrative, Writer, restore
 from ioc_report.openrouter import OpenRouterClient, OpenRouterConfig
@@ -113,11 +119,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if isinstance(found, OpenRouterClient):
                     _require_credit(found)
         now = datetime.now(UTC)
-        if not args.no_live:
-            _preflight(cases, now)
-        session = (
-            LiveSession(None) if args.no_live else LiveSession.connect(SourceConfig.from_env())
-        )
+        source = None if args.no_live else SourceConfig.from_env()
+        if source is not None:
+            _preflight(cases, now, minute_horizon(source))
+        session = LiveSession(None) if source is None else LiveSession.connect(source)
     except (ConfigurationError, FeedError, HistoryError, ModelError) as exc:
         print(f"ioc-report: {exc}", file=sys.stderr)
         return 2
@@ -426,9 +431,11 @@ def _context_names(review: Sequence[Case], live: LiveContext) -> list[tuple[str,
     return list(requests)
 
 
-def _preflight(cases: Sequence[Case], now: datetime) -> None:
+def _preflight(
+    cases: Sequence[Case], now: datetime, horizon_days: int | None = MINUTE_HORIZON_DAYS
+) -> None:
     """Say up front how much of the feed the live source can still check."""
-    queried, _expired = plan_days(cases, UtcDay.latest_completed(now))
+    queried, _expired = plan_days(cases, UtcDay.latest_completed(now), horizon_days)
     inside = sum(1 for case in cases if all(day in queried for day in case.days))
     none = sum(1 for case in cases if not any(day in queried for day in case.days))
     print(

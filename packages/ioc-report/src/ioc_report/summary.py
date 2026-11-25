@@ -242,11 +242,13 @@ def coverage_items(
         rows = sum(audit.read_rows for audit in live.audits)
         size = sum(audit.read_bytes for audit in live.audits)
         seconds = sum(audit.elapsed_seconds for audit in live.audits)
+        # A source that does not report bytes read (DuckDB) gives rows alone.
+        read = f"{rows:,} rows and {size / 1e9:.2f} GB" if size else f"{rows:,} rows"
         items.append(
             CoverageItem(
                 "Query footprint",
-                f"{len(live.audits)} source quer(ies), {rows:,} rows and {size / 1e9:.2f} GB "
-                f"read in {seconds:.0f} s; aggregate-only, read-only.",
+                f"{len(live.audits)} source quer(ies), {read} read in {seconds:.0f} s; "
+                "aggregate-only, read-only.",
             )
         )
     return items

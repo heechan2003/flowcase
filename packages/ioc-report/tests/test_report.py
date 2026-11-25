@@ -6,11 +6,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from network_behaviour.config import SourceConfig
 
 from ioc_report import cli, registration
 from ioc_report.cli import main
-from ioc_report.live import LiveSession
 from ioc_report.model import OllamaClient, OllamaConfig
 from ioc_report.openrouter import OpenRouterClient
 from tests.conftest import FIXTURES, minute_row, record, write_feed
@@ -174,10 +172,8 @@ def test_a_paid_run_stops_when_the_live_source_is_unavailable(
     post = _Post([_listing(["structured_outputs"]), credits])
     client = OpenRouterClient(CONFIG, post, sleep=lambda _: None, budget=0.10)
     monkeypatch.setattr(cli, "_model_client", lambda env, budget: client)
-    monkeypatch.setattr(SourceConfig, "from_env", staticmethod(lambda: None))
-    monkeypatch.setattr(
-        LiveSession, "connect", classmethod(lambda cls, config: cls(None, "no route"))
-    )
+    # The source file is missing, so the live session cannot open it.
+    monkeypatch.setenv("NETWORK_BEHAVIOUR_SOURCE_PATH", str(tmp_path / "absent-source.duckdb"))
 
     assert main([str(FEED), "--budget", "0.10"]) == 2
     assert "load the match days into the source, or pass --no-live" in capsys.readouterr().err

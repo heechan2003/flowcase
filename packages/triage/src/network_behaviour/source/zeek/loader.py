@@ -41,7 +41,12 @@ import pyarrow as pa
 
 from network_behaviour.normalization.service import registered_domain
 from network_behaviour.source.contracts import SOURCE_CONTRACTS
-from network_behaviour.source.zeek.asn import AsnTableError, load_asn_table
+from network_behaviour.source.zeek.asn import (
+    AsnTableError,
+    define_ipv4_int,
+    empty_asn_table,
+    load_asn_table,
+)
 from network_behaviour.source.zeek.logs import KINDS_BY_NAME, ZeekLogError, find_logs, stage
 
 LONG_FLOW_MIN_BYTES = 1_000_000
@@ -129,10 +134,7 @@ def load_day(
             if asn_table is not None:
                 load_asn_table(connection, asn_table)
             else:
-                connection.execute(
-                    "CREATE OR REPLACE TEMP TABLE asn_ranges "
-                    "(lo UBIGINT, hi UBIGINT, asn VARCHAR, organization VARCHAR)"
-                )
+                empty_asn_table(connection)
         except (ZeekLogError, AsnTableError) as exc:
             raise ZeekLoadError(str(exc)) from exc
         connections, dropped = _orient(connection, start, end, bool(local_nets))
@@ -160,17 +162,7 @@ def load_day(
 
 
 def _macros(connection: duckdb.DuckDBPyConnection, local_nets: Sequence[IPv4Network]) -> None:
-    connection.execute(
-        r"""
-        CREATE OR REPLACE TEMP MACRO ipv4_int(ip) AS
-            CASE WHEN regexp_full_match(ip, '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}') THEN
-                CAST(split_part(ip, '.', 1) AS UBIGINT) * 16777216
-                + CAST(split_part(ip, '.', 2) AS UBIGINT) * 65536
-                + CAST(split_part(ip, '.', 3) AS UBIGINT) * 256
-                + CAST(split_part(ip, '.', 4) AS UBIGINT)
-            END
-        """
-    )
+    define_ipv4_int(connection)
     connection.execute("CREATE OR REPLACE TEMP TABLE local_nets (lo UBIGINT, hi UBIGINT)")
     if local_nets:
         connection.executemany(

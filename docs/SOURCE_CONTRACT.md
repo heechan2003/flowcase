@@ -1,13 +1,13 @@
 # Source contract: the four tables and how Zeek fills them
 
-Triage and the IOC report read four tables and nothing else. The original deployment read them from a
+Triage, the IOC report's live queries and `ioc-match` read four tables and nothing else. The original deployment read them from a
 commercial flow probe. Here, `network-behaviour load-zeek` writes them from Zeek logs into a DuckDB file.
 Every reader opens that file read-only. Detectors, rules and the writer never see a Zeek field.
 
 - **Code:**
   - `packages/triage/src/network_behaviour/source/zeek/loader.py`: the mapping
   - `source/contracts.py`: the exact column types the contract check requires
-  - `sql/source/`: the queries
+  - `sql/source/` (triage) and `packages/ioc-report/src/ioc_report/sql/` (IOC report, `ioc-match`): the queries
 - **Tests:** one per mapping rule in `packages/triage/tests/unit/source/zeek/`.
   `tests/integration/source/test_zeek_day.py` loads a generated day, runs every source check and publishes it.
 
