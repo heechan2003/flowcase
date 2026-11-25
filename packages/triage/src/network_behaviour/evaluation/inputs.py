@@ -36,7 +36,7 @@ from network_behaviour.aggregation import (
     StagedDay,
 )
 from network_behaviour.detectors.dns import DnsDailyObservation
-from network_behaviour.operations.pipeline import ClickHouseDayInputProvider
+from network_behaviour.operations.pipeline import SourceDayInputProvider
 from network_behaviour.source.client import ReadOnlyQueryRunner
 from network_behaviour.time import UtcDay
 
@@ -135,7 +135,7 @@ def load_from_source(
 ) -> DayInputs:
     """Re-derive day D from the source, exactly as `run-day` does. Reports its own footprint."""
 
-    source, staged, dns = ClickHouseDayInputProvider(
+    source, staged, dns = SourceDayInputProvider(
         runner, sql_root, timeout_seconds=timeout_seconds
     ).load(day)
     return DayInputs(

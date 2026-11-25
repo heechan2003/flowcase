@@ -21,6 +21,20 @@ make sync
 Copy `.env.example` to `.env` and set mode `0600`. `.env` is git-ignored and process-environment values take
 precedence. The product database defaults to `data/network_behaviour.duckdb`.
 
+## Load Zeek logs
+
+The pipeline reads four source tables. `load-zeek` writes them from Zeek's conn, ssl, dns and (optional) weird
+logs, JSON or TSV, plain or gzipped, one UTC day at a time:
+
+```shell
+network-behaviour load-zeek --day YYYY-MM-DD --logs /var/log/zeek --local-nets 10.0.0.0/8
+network-behaviour source-check --day YYYY-MM-DD    # coverage, grain, duplicates, reconciliation
+```
+
+The source file defaults to `data/source.duckdb` (`NETWORK_BEHAVIOUR_SOURCE_PATH`). Server ASNs come from an
+ip2asn-format table when `--asn-table` or `NETWORK_BEHAVIOUR_ASN_TABLE` names one. A day needs traffic in all
+1,440 minutes to pass the coverage check. The mapping is in the repository's `docs/SOURCE_CONTRACT.md`.
+
 ## Publish a day
 
 Day `D` becomes eligible at `D+1 08:00 UTC`:
@@ -69,6 +83,7 @@ were removed in stream schema v2.
 Supported, hidden from the release help surface:
 
 ```shell
+network-behaviour load-zeek --start YYYY-MM-DD --end YYYY-MM-DD --logs DIR
 network-behaviour source-check --metadata-only
 network-behaviour source-check --day YYYY-MM-DD
 network-behaviour backfill --start YYYY-MM-DD --end YYYY-MM-DD
@@ -95,8 +110,8 @@ interpretation:
   reported in each run's census — and DNS still scores the addresses that sent a query.
 - **`flow_count` is zero on exactly those unaddressed rows**, about half the source, so any gate resting on flow
   counts is carried by its other arm.
-- **Source detail expires in about fifteen days.** Older days can be replayed from retained history but not
-  re-derived.
+- **The original probe kept source detail for about fifteen days.** A Zeek-loaded source keeps a day until it
+  is reloaded, so older days can be re-derived; `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` reproduces the limit.
 - **`client_ip` is not a durable host identity.** No source field offers better continuity.
 - **Direction is visible only in long flows.** The probe always orients the campus side as the client and
   `server_port` is always the remote side's port, so `activity_1m` cannot say who opened a

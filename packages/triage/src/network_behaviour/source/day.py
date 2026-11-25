@@ -29,9 +29,12 @@ SOURCE_QUERY_VERSIONS: Mapping[str, int] = {
     "day_rate_observations": 1,
     "day_long_flow_observations": 1,
 }
-SOURCE_QUERY_BUNDLE_VERSION = "phase3-source-bundle-v3"
+# zeek-source-bundle-v1: the same queries, names, versions and output columns as
+# phase3-source-bundle-v3, in DuckDB's dialect over tables the Zeek loader writes.
+SOURCE_QUERY_BUNDLE_VERSION = "zeek-source-bundle-v1"
 COMPATIBLE_SOURCE_QUERY_BUNDLE_VERSIONS = (
     "phase3-source-bundle-v2",
+    "phase3-source-bundle-v3",
     SOURCE_QUERY_BUNDLE_VERSION,
 )
 # The per-query version sets a published day may have recorded in `query_versions_json` and still

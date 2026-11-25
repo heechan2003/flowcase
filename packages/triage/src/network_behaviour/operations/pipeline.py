@@ -36,10 +36,10 @@ from network_behaviour.population import PopulationCensus
 from network_behaviour.publication import (
     COMPATIBLE_NORMALIZATION_BUNDLE_VERSIONS,
     COMPATIBLE_RECONCILIATION_VERSIONS,
-    NORMALIZATION_BUNDLE_VERSION,
     DayPublisher,
     PublicationResult,
     StorageGuard,
+    normalization_bundle_version,
 )
 from network_behaviour.ranking import COMPATIBLE_BEHAVIOUR_VERSION_PAIRS, RankingPolicy
 from network_behaviour.source.client import ReadOnlyQueryRunner
@@ -63,6 +63,8 @@ from network_behaviour.storage.migrations import COMPATIBLE_SCHEMA_VERSIONS
 from network_behaviour.time import UtcDay
 
 ACTIVITY_DETAIL_TTL_DAYS = 15
+"""The original probe's detail retention (`CASE_STUDY` §1), for a provider that does not say its own
+(`detail_ttl_days`). A day older than this cannot be re-derived there, only replayed."""
 _LOGGER = logging.getLogger("network_behaviour.operations")
 
 
@@ -110,7 +112,7 @@ class DayRunReport:
         )
 
 
-class ClickHouseDayInputProvider:
+class SourceDayInputProvider:
     """Perform the bounded source checks and streamed day aggregation exactly once."""
 
     def __init__(
@@ -119,10 +121,13 @@ class ClickHouseDayInputProvider:
         sql_root: Path,
         *,
         timeout_seconds: int,
+        detail_ttl_days: int | None = None,
     ) -> None:
         self._runner = runner
         self._sql_root = sql_root
         self._timeout_seconds = timeout_seconds
+        self.detail_ttl_days = detail_ttl_days
+        """None: the source keeps a day's detail for as long as it stays loaded."""
 
     def load(
         self, day: UtcDay
@@ -222,8 +227,10 @@ class DayRunService:
                 raise DayRunError("source provider returned a different UTC day")
             if source.query_versions_json != _source_query_versions_json():
                 raise DayRunError("source provider query versions are incompatible")
-            detail_expires_at = day.bounds.end + timedelta(days=ACTIVITY_DETAIL_TTL_DAYS)
-            if current >= detail_expires_at:
+            ttl = getattr(provider, "detail_ttl_days", ACTIVITY_DETAIL_TTL_DAYS)
+            # None: the source keeps the day's detail, so the stream names no expiry.
+            detail_expires_at = None if ttl is None else day.bounds.end + timedelta(days=ttl)
+            if detail_expires_at is not None and current >= detail_expires_at:
                 raise DayRunError("principal source detail has expired for this day")
             _LOGGER.info(
                 "day source aggregation completed",
@@ -394,7 +401,7 @@ class DayRunService:
                 now,
                 SOURCE_QUERY_BUNDLE_VERSION,
                 schema_version,
-                NORMALIZATION_BUNDLE_VERSION,
+                normalization_bundle_version(),
             ],
         )
         return run_id

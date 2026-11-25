@@ -2,14 +2,16 @@
 
 This file applies to `sql/` and overrides broader guidance only where it is more specific.
 
-## ClickHouse Source SQL
+## Source SQL (DuckDB)
 
 - Use only `flow.activity_1m`, `flow.host_load_5m`, `flow.dns_pairs`, and `flow.long_flows` unless
   `docs/PRODUCT_CONTRACT.md` changes.
 - Keep production source SQL read-only. Allow `SELECT`, `WITH`, and metadata inspection only.
 - Require typed UTC start/end parameters for every data query and use half-open ranges `[start, end)`.
 - Select explicit columns. Do not use `SELECT *`.
-- Aggregate in ClickHouse before transfer; never download a raw day.
+- Aggregate in the query before transfer; never download a raw day.
+- Keep the typed placeholders (`{start:DateTime('UTC')}`): `validate_sql` checks them, and the client
+  binds each as a DuckDB parameter of the matching type. Metadata queries read `information_schema` only.
 - Normalize additive counters defensively and preserve duplicate-handling semantics.
 - Use `transport_protocol` for TCP/UDP semantics; zero protocol/port values mean unknown.
 - Apply `up_bytes + down_bytes >= 1000000` explicitly to long-flow evidence.

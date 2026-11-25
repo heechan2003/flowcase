@@ -27,6 +27,7 @@ from network_behaviour.source.day import (
     ReconciliationTotals,
     SourceDayInputs,
 )
+from network_behaviour.synthetic import SYNTHETIC_VERSION_SUFFIX, synthetic_world
 from network_behaviour.time import UtcDay
 
 RECONCILIATION_VERSION = "activity-rate-relative-v1"
@@ -38,7 +39,16 @@ NORMALIZATION_BUNDLE_VERSION = (
 # Generations a published day may carry and still stream back; see
 # `aggregation.COMPATIBLE_AGGREGATION_VERSIONS` for why these are allow-lists.
 COMPATIBLE_RECONCILIATION_VERSIONS = frozenset({RECONCILIATION_VERSION})
-COMPATIBLE_NORMALIZATION_BUNDLE_VERSIONS = frozenset({NORMALIZATION_BUNDLE_VERSION})
+COMPATIBLE_NORMALIZATION_BUNDLE_VERSIONS = frozenset(
+    {NORMALIZATION_BUNDLE_VERSION, NORMALIZATION_BUNDLE_VERSION + SYNTHETIC_VERSION_SUFFIX}
+)
+
+
+def normalization_bundle_version() -> str:
+    """The version a day is published under: `+synthetic` in a synthetic world."""
+    return NORMALIZATION_BUNDLE_VERSION + (SYNTHETIC_VERSION_SUFFIX if synthetic_world() else "")
+
+
 RETENTION_DAYS = 365
 GIB: Final = 1024**3
 DEFAULT_ALERT_BYTES = 40 * GIB
@@ -253,7 +263,7 @@ class DayPublisher:
         manifest_values = [
             SOURCE_QUERY_BUNDLE_VERSION,
             schema_version,
-            NORMALIZATION_BUNDLE_VERSION,
+            normalization_bundle_version(),
             source.query_versions_json,
             staged.aggregation_version,
             self._reconciliation.version,

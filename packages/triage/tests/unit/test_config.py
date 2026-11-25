@@ -4,33 +4,33 @@ from pathlib import Path
 import pytest
 
 from network_behaviour.config import (
-    ClickHouseConfig,
+    DEFAULT_SOURCE_PATH,
     ConfigurationError,
+    SourceConfig,
     load_default_environment,
 )
 
-BASE_ENV = {
-    "CLICKHOUSE_HOST": "clickhouse.example.test",
-    "CLICKHOUSE_USER": "readonly",
-    "CLICKHOUSE_PASSWORD": "not-a-real-secret",
-}
+
+def test_source_config_defaults_to_the_repository_data_folder() -> None:
+    config = SourceConfig.from_env({})
+
+    assert config.path == DEFAULT_SOURCE_PATH and config.query_timeout_seconds == 900
 
 
-def test_config_requires_password() -> None:
-    with pytest.raises(ConfigurationError, match="CLICKHOUSE_PASSWORD"):
-        ClickHouseConfig.from_env({"CLICKHOUSE_HOST": "host", "CLICKHOUSE_USER": "user"})
+def test_source_config_reads_its_path_and_timeout() -> None:
+    config = SourceConfig.from_env(
+        {
+            "NETWORK_BEHAVIOUR_SOURCE_PATH": "/srv/source.duckdb",
+            "NETWORK_BEHAVIOUR_SOURCE_QUERY_TIMEOUT": "60",
+        }
+    )
+
+    assert config.path == Path("/srv/source.duckdb") and config.query_timeout_seconds == 60
 
 
-def test_config_rejects_non_readonly_mode() -> None:
-    with pytest.raises(ConfigurationError, match="must remain true"):
-        ClickHouseConfig.from_env({**BASE_ENV, "CLICKHOUSE_READONLY": "false"})
-
-
-def test_config_repr_redacts_password() -> None:
-    config = ClickHouseConfig.from_env(BASE_ENV)
-
-    assert "not-a-real-secret" not in repr(config)
-    assert "password=<redacted>" in repr(config)
+def test_source_config_rejects_a_non_positive_timeout() -> None:
+    with pytest.raises(ConfigurationError, match="must be positive"):
+        SourceConfig.from_env({"NETWORK_BEHAVIOUR_SOURCE_QUERY_TIMEOUT": "0"})
 
 
 def test_default_env_file_loads_without_overriding_process_environment(
@@ -38,24 +38,22 @@ def test_default_env_file_loads_without_overriding_process_environment(
 ) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "CLICKHOUSE_HOST=file-host\nCLICKHOUSE_USER=file-user\nCLICKHOUSE_PASSWORD=file-password\n",
+        "NETWORK_BEHAVIOUR_SOURCE_PATH=file-path\nNETWORK_BEHAVIOUR_LOCAL_NETS=10.0.0.0/8\n",
         encoding="utf-8",
     )
     env_file.chmod(0o600)
-    monkeypatch.setenv("CLICKHOUSE_HOST", "process-host")
-    monkeypatch.delenv("CLICKHOUSE_USER", raising=False)
-    monkeypatch.delenv("CLICKHOUSE_PASSWORD", raising=False)
+    monkeypatch.setenv("NETWORK_BEHAVIOUR_SOURCE_PATH", "process-path")
+    monkeypatch.delenv("NETWORK_BEHAVIOUR_LOCAL_NETS", raising=False)
 
     load_default_environment(env_file)
 
-    assert os.environ["CLICKHOUSE_HOST"] == "process-host"
-    assert os.environ["CLICKHOUSE_USER"] == "file-user"
-    assert os.environ["CLICKHOUSE_PASSWORD"] == "file-password"
+    assert os.environ["NETWORK_BEHAVIOUR_SOURCE_PATH"] == "process-path"
+    assert os.environ["NETWORK_BEHAVIOUR_LOCAL_NETS"] == "10.0.0.0/8"
 
 
 def test_default_env_file_must_be_private(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
-    env_file.write_text("CLICKHOUSE_PASSWORD=secret\n", encoding="utf-8")
+    env_file.write_text("OPENROUTER_API_KEY=secret\n", encoding="utf-8")
     env_file.chmod(0o644)
 
     with pytest.raises(ConfigurationError, match="group or others"):

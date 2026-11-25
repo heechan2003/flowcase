@@ -10,12 +10,20 @@ from typing import Protocol
 
 import tldextract
 
+from network_behaviour.synthetic import SYNTHETIC_PUBLIC_SUFFIXES, synthetic_world
+
 SERVICE_ID_VERSION = "service-id-v1"
 CATEGORY_ID_VERSION = "category-id-v1"
 _SERVICE_PERSON = b"nb-service-v1"
 _CATEGORY_PERSON = b"nb-cat-v1"
 _EXTRACT = tldextract.TLDExtract(
     cache_dir=None, suffix_list_urls=(), include_psl_private_domains=False
+)
+_EXTRACT_SYNTHETIC = tldextract.TLDExtract(
+    cache_dir=None,
+    suffix_list_urls=(),
+    include_psl_private_domains=False,
+    extra_suffixes=SYNTHETIC_PUBLIC_SUFFIXES,
 )
 _WHITESPACE = re.compile(r"\s+")
 
@@ -116,7 +124,7 @@ def registered_domain(raw: str | None) -> str | None:
         ascii_hostname = hostname.encode("idna").decode("ascii")
     except UnicodeError:
         return None
-    extracted = _EXTRACT(ascii_hostname)
+    extracted = (_EXTRACT_SYNTHETIC if synthetic_world() else _EXTRACT)(ascii_hostname)
     domain = extracted.top_domain_under_public_suffix
     if not domain or not extracted.suffix:
         return None

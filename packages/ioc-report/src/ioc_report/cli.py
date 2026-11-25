@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import duckdb
-from network_behaviour.config import ClickHouseConfig, ConfigurationError, load_default_environment
+from network_behaviour.config import ConfigurationError, SourceConfig, load_default_environment
 from network_behaviour.time import UtcDay
 
 from ioc_report import registration
@@ -116,7 +116,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not args.no_live:
             _preflight(cases, now)
         session = (
-            LiveSession(None) if args.no_live else LiveSession.connect(ClickHouseConfig.from_env())
+            LiveSession(None) if args.no_live else LiveSession.connect(SourceConfig.from_env())
         )
     except (ConfigurationError, FeedError, HistoryError, ModelError) as exc:
         print(f"ioc-report: {exc}", file=sys.stderr)
@@ -128,8 +128,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             if any(isinstance(found, OpenRouterClient) for found in (client, verdicts, reports)):
                 print(
                     f"ioc-report: live source unavailable ({live.error}). A paid run would spend "
-                    "credit on cases missing their live contacts: connect the VPN, or pass "
-                    "--no-live to run on the feed and history alone.",
+                    "credit on cases missing their live contacts: load the match days into the "
+                    "source, or pass --no-live to run on the feed and history alone.",
                     file=sys.stderr,
                 )
                 return 2
@@ -267,7 +267,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def case_main(argv: Sequence[str] | None = None) -> int:
     """`ioc-case-report REPORT.json`: a PDF for each review case in a finished run, or for the cases
-    named. It reads only that file, so it needs no VPN and no retained store."""
+    named. It reads only that file, so it needs no live source and no retained store."""
     args = _case_parser().parse_args(argv)
     client: OpenRouterClient | None = None
     try:

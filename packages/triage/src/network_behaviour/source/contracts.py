@@ -1,4 +1,4 @@
-"""Approved ClickHouse source contracts and fail-closed validation."""
+"""Approved source contracts and fail-closed validation."""
 
 from __future__ import annotations
 
@@ -34,28 +34,31 @@ def _columns(**columns: str) -> tuple[ColumnContract, ...]:
     return tuple(ColumnContract(name, type_name) for name, type_name in columns.items())
 
 
+TABLE_TYPE = "BASE TABLE"
+"""A source is a stored table, never a view over something else."""
+
 SOURCE_CONTRACTS = (
     SourceContract(
         key="activity_1m",
         database="flow",
         table="activity_1m",
         columns=_columns(
-            time="DateTime",
-            client_ip="String",
-            server_ip="String",
-            server_port="UInt16",
-            transport_protocol="UInt8",
-            application="LowCardinality(String)",
-            application_category="LowCardinality(String)",
-            root_domain="String",
-            sni="String",
-            dns="String",
-            asn="Nullable(String)",
-            up_bytes="Int64",
-            down_bytes="Int64",
-            up_packets="Int64",
-            down_packets="Int64",
-            flow_count="UInt64",
+            time="TIMESTAMP WITH TIME ZONE",
+            client_ip="VARCHAR",
+            server_ip="VARCHAR",
+            server_port="USMALLINT",
+            transport_protocol="UTINYINT",
+            application="VARCHAR",
+            application_category="VARCHAR",
+            root_domain="VARCHAR",
+            sni="VARCHAR",
+            dns="VARCHAR",
+            asn="VARCHAR",
+            up_bytes="BIGINT",
+            down_bytes="BIGINT",
+            up_packets="BIGINT",
+            down_packets="BIGINT",
+            flow_count="UBIGINT",
         ),
         required_buckets_per_day=1_440,
         absence_is_failure=True,
@@ -65,12 +68,12 @@ SOURCE_CONTRACTS = (
         database="flow",
         table="host_load_5m",
         columns=_columns(
-            time="DateTime",
-            client_ip="String",
-            active_minutes="UInt64",
-            up_rate_p95_bps="Nullable(Float64)",
-            up_bytes="Nullable(Int64)",
-            down_bytes="Nullable(Int64)",
+            time="TIMESTAMP WITH TIME ZONE",
+            client_ip="VARCHAR",
+            active_minutes="UBIGINT",
+            up_rate_p95_bps="DOUBLE",
+            up_bytes="BIGINT",
+            down_bytes="BIGINT",
         ),
         required_buckets_per_day=288,
         absence_is_failure=True,
@@ -80,17 +83,17 @@ SOURCE_CONTRACTS = (
         database="flow",
         table="dns_pairs",
         columns=_columns(
-            time="DateTime64(6)",
-            client_ip="String",
-            server_ip="String",
-            complete_sessions="UInt64",
-            unanswered_sessions="UInt64",
-            unsolicited_sessions="UInt64",
-            query_packets="UInt64",
-            response_packets="UInt64",
-            unanswered_query_packets="UInt64",
-            unsolicited_response_packets="UInt64",
-            mean_service_nanos="UInt64",
+            time="TIMESTAMP WITH TIME ZONE",
+            client_ip="VARCHAR",
+            server_ip="VARCHAR",
+            complete_sessions="UBIGINT",
+            unanswered_sessions="UBIGINT",
+            unsolicited_sessions="UBIGINT",
+            query_packets="UBIGINT",
+            response_packets="UBIGINT",
+            unanswered_query_packets="UBIGINT",
+            unsolicited_response_packets="UBIGINT",
+            mean_service_nanos="UBIGINT",
         ),
         required_buckets_per_day=None,
         absence_is_failure=False,
@@ -100,17 +103,18 @@ SOURCE_CONTRACTS = (
         database="flow",
         table="long_flows",
         columns=_columns(
-            flow_id="String",
-            start="DateTime64(6)",
-            finish="DateTime64(6)",
-            duration_sec="Float64",
-            client_ip="String",
-            server_ip="String",
-            client_port="UInt32",
-            server_port="UInt32",
-            protocol="UInt16",
-            up_bytes="UInt64",
-            down_bytes="UInt64",
+            flow_id="VARCHAR",
+            start="TIMESTAMP WITH TIME ZONE",
+            finish="TIMESTAMP WITH TIME ZONE",
+            duration_sec="DOUBLE",
+            client_ip="VARCHAR",
+            server_ip="VARCHAR",
+            client_port="UINTEGER",
+            server_port="UINTEGER",
+            protocol="USMALLINT",
+            up_bytes="UBIGINT",
+            down_bytes="UBIGINT",
+            initiator="VARCHAR",
         ),
         required_buckets_per_day=None,
         absence_is_failure=False,
@@ -191,10 +195,10 @@ def validate_metadata(outcome: QueryOutcome) -> tuple[ContractIssue, ...]:
         if table_key not in engines:
             issues.append(ContractIssue(source, "missing_table", "required table is absent"))
             continue
-        if engines[table_key] != "MergeTree":
+        if engines[table_key] != TABLE_TYPE:
             issues.append(
                 ContractIssue(
-                    source, "wrong_engine", f"expected MergeTree, got {engines[table_key]}"
+                    source, "wrong_engine", f"expected {TABLE_TYPE}, got {engines[table_key]}"
                 )
             )
         for column in contract.columns:

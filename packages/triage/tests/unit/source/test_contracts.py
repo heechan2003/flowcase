@@ -22,7 +22,7 @@ def _valid_metadata_rows() -> list[tuple[Any, ...]]:
     rows: list[tuple[Any, ...]] = []
     for contract in SOURCE_CONTRACTS:
         rows.extend(
-            (contract.database, contract.table, column.name, column.type_name, "MergeTree")
+            (contract.database, contract.table, column.name, column.type_name, "BASE TABLE")
             for column in contract.columns
         )
     return rows
@@ -41,7 +41,7 @@ def test_metadata_contract_fails_closed_on_missing_column_and_type_drift() -> No
     rows = _valid_metadata_rows()
     rows.pop(0)
     database, table, column, _type_name, engine = rows[0]
-    rows[0] = (database, table, column, "UInt64", engine)
+    rows[0] = (database, table, column, "HUGEINT", engine)
     outcome = _outcome(("database", "table", "column_name", "column_type", "engine"), rows)
 
     issues = validate_metadata(outcome)

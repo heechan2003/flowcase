@@ -276,7 +276,8 @@ The run stops with a message before any query if any of these fail:
 
 An unreachable live source does not stop a run on the local model; it is labelled in every case. A
 paid run (`MODEL_PROVIDER=openrouter`) stops before any model call instead, because the cases would
-lack their live contacts: connect the VPN, or pass `--no-live` to run on the feed and history alone.
+lack their live contacts: load the match days into the source, or pass `--no-live` to run on the feed
+and history alone.
 
 ### Run each feed the day it arrives
 

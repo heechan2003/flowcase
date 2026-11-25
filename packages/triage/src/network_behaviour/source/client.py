@@ -1,66 +1,22 @@
-"""Privacy-safe, read-only ClickHouse query execution."""
+"""Privacy-safe, read-only source query execution."""
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Generator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from threading import get_ident
 from time import monotonic
+from types import TracebackType
 from typing import Any, Protocol, cast
 
-import clickhouse_connect
-from clickhouse_connect.driver.common import StreamContext
-from clickhouse_connect.driver.external import ExternalData
-
-from network_behaviour.config import ClickHouseConfig
+from network_behaviour.config import ConfigurationError, SourceConfig
+from network_behaviour.source.duckdb_client import DuckDbSourceClient, DuckDbSourceError
 from network_behaviour.source.sql import SqlKind, SqlQuery
 from network_behaviour.time import UtcBounds
 
 
 class SourceQueryError(RuntimeError):
     """Raised without SQL, parameters, credentials, or source identifiers."""
-
-
-_DRIVER_HTTP_LOGGER = "clickhouse_connect.driver.httputil"
-_TRUNCATED_STREAM_MESSAGE = "unexpected failure to read next chunk"
-
-
-class _DriverStreamFailureMonitor(logging.Handler):
-    """Detect clickhouse-connect 0.x swallowing a mid-response HTTP failure."""
-
-    def __init__(self) -> None:
-        super().__init__(level=logging.WARNING)
-        self._thread_id = get_ident()
-        self.detected = False
-
-    def emit(self, record: logging.LogRecord) -> None:
-        if record.thread == self._thread_id and record.getMessage().startswith(
-            _TRUNCATED_STREAM_MESSAGE
-        ):
-            self.detected = True
-
-
-@contextmanager
-def _monitor_driver_stream() -> Generator[_DriverStreamFailureMonitor, None, None]:
-    """Install a query-local detector until the upstream stream fix is released."""
-
-    logger = logging.getLogger(_DRIVER_HTTP_LOGGER)
-    monitor = _DriverStreamFailureMonitor()
-    previous_disabled = logger.disabled
-    previous_level = logger.level
-    logger.disabled = False
-    if not logger.isEnabledFor(logging.WARNING):
-        logger.setLevel(logging.WARNING)
-    logger.addHandler(monitor)
-    try:
-        yield monitor
-    finally:
-        logger.removeHandler(monitor)
-        logger.setLevel(previous_level)
-        logger.disabled = previous_disabled
-        monitor.close()
 
 
 class QueryResultLike(Protocol):
@@ -80,13 +36,29 @@ class QueryResultLike(Protocol):
     def row_count(self) -> int: ...
 
 
+class RowBlockStream(Protocol):
+    """An executed query's row blocks. `source` names its columns, and its `summary` holds the
+    footprint once the blocks are read."""
+
+    @property
+    def source(self) -> Any: ...
+
+    def __enter__(self) -> Iterator[Sequence[Sequence[Any]]]: ...
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None: ...
+
+
 class ClientLike(Protocol):
     def query(
         self,
         query: str,
         parameters: Mapping[str, Any] | None = None,
         settings: Mapping[str, Any] | None = None,
-        external_data: ExternalData | None = None,
     ) -> QueryResultLike: ...
 
     def query_row_block_stream(
@@ -94,8 +66,7 @@ class ClientLike(Protocol):
         query: str,
         parameters: Mapping[str, Any] | None = None,
         settings: Mapping[str, Any] | None = None,
-        external_data: ExternalData | None = None,
-    ) -> StreamContext: ...
+    ) -> RowBlockStream: ...
 
     def close(self) -> None: ...
 
@@ -125,7 +96,7 @@ class LoggingAuditSink:
 
     def record(self, audit: QueryAudit) -> None:
         self._logger.info(
-            "clickhouse query completed",
+            "source query completed",
             extra={
                 "query_name": audit.query_name,
                 "query_version": audit.query_version,
@@ -150,21 +121,12 @@ class QueryOutcome:
         return tuple(dict(zip(self.column_names, row, strict=True)) for row in self.rows)
 
 
-def create_clickhouse_client(config: ClickHouseConfig) -> ClientLike:
-    """Create a client whose server session is forced into read-only mode."""
-    return cast(
-        ClientLike,
-        clickhouse_connect.get_client(
-            host=config.host,
-            port=config.port,
-            username=config.username,
-            password=config.password,
-            secure=config.secure,
-            connect_timeout=config.connect_timeout_seconds,
-            send_receive_timeout=config.send_receive_timeout_seconds,
-            settings={"readonly": 1},
-        ),
-    )
+def create_source_client(config: SourceConfig) -> ClientLike:
+    """Open the source tables read-only."""
+    try:
+        return cast(ClientLike, DuckDbSourceClient(config.path))
+    except DuckDbSourceError as exc:
+        raise ConfigurationError(f"source unavailable: {exc}") from exc
 
 
 class ReadOnlyQueryRunner:
@@ -187,7 +149,6 @@ class ReadOnlyQueryRunner:
         *,
         bounds: UtcBounds | None = None,
         parameters: Mapping[str, Any] | None = None,
-        external_data: ExternalData | None = None,
     ) -> QueryOutcome:
         if query.kind is SqlKind.DATA and bounds is None:
             raise ValueError("data queries require typed UTC bounds")
@@ -204,20 +165,16 @@ class ReadOnlyQueryRunner:
         returned_rows = 0
         query_id = "unavailable"
         try:
-            with _monitor_driver_stream() as stream_monitor:
-                result = self._client.query(
-                    query.text,
-                    parameters=bound_parameters,
-                    settings={"readonly": 1, "max_execution_time": query.timeout_seconds},
-                    external_data=external_data,
-                )
-                query_id = result.query_id or "unavailable"
-                column_names = tuple(result.column_names)
-                rows = tuple(tuple(row) for row in result.result_rows)
-                returned_rows = len(rows)
-                if stream_monitor.detected:
-                    raise RuntimeError("ClickHouse response stream was interrupted")
-                summary = result.summary
+            result = self._client.query(
+                query.text,
+                parameters=bound_parameters,
+                settings={"readonly": 1, "max_execution_time": query.timeout_seconds},
+            )
+            query_id = result.query_id or "unavailable"
+            column_names = tuple(result.column_names)
+            rows = tuple(tuple(row) for row in result.result_rows)
+            returned_rows = len(rows)
+            summary = result.summary
         except Exception as exc:
             self._audit_sink.record(
                 QueryAudit(
@@ -258,7 +215,6 @@ class ReadOnlyQueryRunner:
         consume: Callable[[tuple[str, ...], Sequence[Sequence[Any]]], None],
         *,
         bounds: UtcBounds,
-        external_data: ExternalData | None = None,
     ) -> QueryAudit:
         """Stream bounded row blocks through a consumer without materializing a full result."""
         if query.kind is not SqlKind.DATA:
@@ -268,23 +224,19 @@ class ReadOnlyQueryRunner:
         returned_rows = 0
         query_id = "unavailable"
         try:
-            with _monitor_driver_stream() as stream_monitor:
-                context = self._client.query_row_block_stream(
-                    query.text,
-                    parameters=parameters,
-                    settings={"readonly": 1, "max_execution_time": query.timeout_seconds},
-                    external_data=external_data,
-                )
-                source = cast(QueryResultLike, context.source)
-                query_id = source.query_id or "unavailable"
-                column_names = tuple(source.column_names)
-                with context as blocks:
-                    for block in blocks:
-                        returned_rows += len(block)
-                        consume(column_names, block)
-                if stream_monitor.detected:
-                    raise RuntimeError("ClickHouse response stream was interrupted")
-                summary = source.summary
+            context = self._client.query_row_block_stream(
+                query.text,
+                parameters=parameters,
+                settings={"readonly": 1, "max_execution_time": query.timeout_seconds},
+            )
+            source = cast(QueryResultLike, context.source)
+            query_id = source.query_id or "unavailable"
+            column_names = tuple(source.column_names)
+            with context as blocks:
+                for block in blocks:
+                    returned_rows += len(block)
+                    consume(column_names, block)
+            summary = source.summary
         except Exception as exc:
             audit = QueryAudit(
                 query_name=query.name,

@@ -1,1 +1,1 @@
-"""Read-only ClickHouse source access and contract validation."""
+"""Read-only source access and contract validation."""
