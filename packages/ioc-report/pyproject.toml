@@ -25,6 +25,7 @@ dev = [
 [project.scripts]
 ioc-report = "ioc_report.cli:main"
 ioc-case-report = "ioc_report.cli:case_main"
+ioc-match = "ioc_report.match:main"
 
 [tool.uv.sources]
 network-behaviour = { workspace = true }

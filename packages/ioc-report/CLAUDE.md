@@ -7,7 +7,8 @@ This tool reads an IOC-match feed (ThreatFox by default), adds live and retained
 - **Never print or commit** feed contents, reports, internal addresses, domains or source rows. `data/` and
   `output/` are git-ignored; keep it that way. When you report, give counts, not cases. A review case's PDF
   and audit file are named for its threat, host and indicator (`case_report.file_stem`), so never list them either.
-- **Source SQL** lives in `src/ioc_report/sql/` and must pass triage's `validate_sql`:
+- **Source SQL** lives in `src/ioc_report/sql/`, in DuckDB's dialect over the tables triage's `load-zeek`
+  writes, and must pass triage's `validate_sql`:
   - only the four authorized tables
   - typed half-open UTC bounds
   - aggregate only
@@ -29,6 +30,8 @@ This tool reads an IOC-match feed (ThreatFox by default), adds live and retained
   `narrative.method_words` sends back a reply that uses them. Haiku writes the paragraphs from the case's
   saved digest; code writes everything else, and the decision is the one in the run's JSON. Nothing here
   reads the source or the DuckDB.
+- **`ioc-match` writes the feed** from a ThreatFox export and the source tables (`match.py`). It prints
+  counts only, and its records keep the format `feed.py` reads; change both together or neither.
 - **A feed names its list.** `knowledge.LISTINGS` says who publishes each list and where its records keep
   what it says; ThreatFox is the default entry. Text names the claim's `source`, never ThreatFox by habit.
   ThreatFox's prompts, digests and blind case files must stay byte-identical, because they are what `evals/`

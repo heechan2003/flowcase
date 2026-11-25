@@ -66,7 +66,7 @@ against a mislabelled family: the schedule shapes are rare (§10, §13), so it c
 | Host's other matches, host day profile (set against the campus addresses with a service row), traffic around the contact, DNS-only names, app labels, lexical features, the feed's match window, the flagged domain's registration date | Shown only |
 | The whole host in retained history: its span, stream episodes on every day, services first used since the match | Shown only (review case files) |
 | After the contact (live, review cases): destinations new to the host, traffic with no name, uploads of 1 MB or more to new destinations, continuity of its named destinations before and after | Shown only. Ranked against retained name use; no threshold |
-| ThreatFox's own first and last seen dates | Shown only, and only from a hand-filled `data/ioc_metadata.json` (IOC_Processor's format): the feed's `threatfox.first_seen_utc`/`last_seen_utc` are the matched flow's start and finish |
+| ThreatFox's own first and last seen dates | Shown only, and only from `data/ioc_metadata.json`, which `ioc-match` fills from the export: the feed's `threatfox.first_seen_utc`/`last_seen_utc` are the matched minute |
 
 ## How it runs
 
@@ -83,8 +83,10 @@ against a mislabelled family: the schedule shapes are rare (§10, §13), so it c
 | 9 | Write the HTML page, the Markdown copy and the JSON, with the actions and the checks behind every verdict | `outline.py`, `report.py`, `html_report.py` |
 | 10 | With `--case-reports`, a short PDF for each review case, written by Haiku from that JSON. Off by default. `ioc-case-report` does the same step on its own, for any case in a finished run | `case_report.py`, `case_report.typ` |
 
-Minute detail is queried only within 13 days, because the source keeps about fifteen (§1). An older
-match day is labelled expired, never "no traffic". History before the first match is clipped to the
+Minute detail is queried for as long as the source holds it. A Zeek-loaded source keeps every
+loaded day. With `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` set, as the original probe's fifteen days
+(§1), only the last N − 2 days are queried, and an older match day is labelled expired, never
+"no traffic". History before the first match is clipped to the
 retained days, and the case file states how many there were.
 
 ## Setup
@@ -118,6 +120,29 @@ internal host address is replaced with `HOST`. Every request asks OpenRouter for
 no-collection routing, and the run stops if a model has no such endpoint. Such a run needs `--budget`.
 
 ## Running
+
+### Match a ThreatFox export (`ioc-match`)
+
+The feed comes from matching a ThreatFox JSON export (CC0, https://threatfox.abuse.ch/export/) against the
+source tables triage's `load-zeek` wrote:
+
+```shell
+uv run ioc-match data/threatfox.json --day YYYY-MM-DD        # or --start/--end; writes data/ioc-matches-*.json
+```
+
+| What | How |
+|---|---|
+| `ip:port` | A minute whose remote address and port are the listed ones |
+| `domain` | A minute whose TLS name or resolved name is the domain or a subdomain of it, or whose registered domain is the domain |
+| `url` | Reduced to its host, then matched as `ip:port` (scheme's default port when none is given) or `domain` |
+| Other types | Skipped: a hash names no traffic |
+
+It writes one record per (indicator, host, matched minute), with the pair's long flows, and merges ThreatFox's
+own first and last seen dates into `data/ioc_metadata.json` (`IOC_METADATA_PATH`). With `--asn-table` (or
+`NETWORK_BEHAVIOUR_ASN_TABLE`) it adds each server's network name and country. It prints counts only. One day
+is one bounded query, plus one for the matched pairs' long flows.
+
+### Report
 
 ```shell
 uv run ioc-report data/matches.json              # live context, history and the model
@@ -279,11 +304,11 @@ paid run (`MODEL_PROVIDER=openrouter`) stops before any model call instead, beca
 lack their live contacts: load the match days into the source, or pass `--no-live` to run on the feed
 and history alone.
 
-### Run each feed the day it arrives
+### When the source forgets: run each feed the day it arrives
 
-ThreatFox lists an indicator and the matcher reports a match within about a day. The source keeps
-minute detail for about fifteen days, and the report re-queries only the last 13. Once a match day
-has gone:
+A Zeek-loaded source keeps every day until it is reloaded, so nothing here applies unless retention is
+set (`NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS`). The original probe kept minute detail for about fifteen days,
+and the report re-queried only the last 13. Once a match day had gone:
 - **The contacts are only the feed's own minutes.** Each record carries one minute, and on one
   measured day the source held minutes the feed lacked.
 - **The schedule check K4 cannot run at minute grain.** Only the retained 5-minute bitmap remains.

@@ -15,9 +15,31 @@ class AsnTableError(ValueError):
     """The table could not be read. The message names the file, never its rows."""
 
 
+def define_ipv4_int(connection: duckdb.DuckDBPyConnection) -> None:
+    """`ipv4_int(text)`: a dotted IPv4 address as an unsigned integer, NULL for anything else."""
+    connection.execute(
+        r"""
+        CREATE OR REPLACE TEMP MACRO ipv4_int(ip) AS
+            CASE WHEN regexp_full_match(ip, '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}') THEN
+                CAST(split_part(ip, '.', 1) AS UBIGINT) * 16777216
+                + CAST(split_part(ip, '.', 2) AS UBIGINT) * 65536
+                + CAST(split_part(ip, '.', 3) AS UBIGINT) * 256
+                + CAST(split_part(ip, '.', 4) AS UBIGINT)
+            END
+        """
+    )
+
+
+def empty_asn_table(connection: duckdb.DuckDBPyConnection) -> None:
+    connection.execute(
+        "CREATE OR REPLACE TEMP TABLE asn_ranges "
+        "(lo UBIGINT, hi UBIGINT, asn VARCHAR, country VARCHAR, organization VARCHAR)"
+    )
+
+
 def load_asn_table(connection: duckdb.DuckDBPyConnection, path: Path) -> int:
-    """Create `asn_ranges (lo, hi, asn, organization)`, sorted by `lo`. Needs the `ipv4_int`
-    macro. Returns the ranges read."""
+    """Create `asn_ranges (lo, hi, asn, country, organization)`, sorted by `lo`. Needs the
+    `ipv4_int` macro (`define_ipv4_int`). Returns the ranges read."""
     if not path.is_file():
         raise AsnTableError(f"no ASN table at {path}")
     quoted = "'" + str(path).replace("'", "''") + "'"
@@ -28,11 +50,12 @@ def load_asn_table(connection: duckdb.DuckDBPyConnection, path: Path) -> int:
         connection.execute(
             f"""
             CREATE OR REPLACE TEMP TABLE asn_ranges AS
-            SELECT lo, hi, asn, organization
+            SELECT lo, hi, asn, country, organization
             FROM (
                 SELECT coalesce(try_cast(c0 AS UBIGINT), ipv4_int(c0)) AS lo,
                        coalesce(try_cast(c1 AS UBIGINT), ipv4_int(c1)) AS hi,
-                       trim(c2) AS asn, trim(c4) AS organization
+                       trim(c2) AS asn, nullif(trim(c3), 'None') AS country,
+                       trim(c4) AS organization
                 FROM read_csv({quoted}, delim = '\\t', header = false, columns = {columns},
                               quote = '', escape = '', auto_detect = false, null_padding = true)
             )

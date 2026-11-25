@@ -35,9 +35,11 @@ from ioc_report.knowledge import ECH_OUTER_NAMES, THREATFOX
 
 SQL_ROOT = Path(__file__).with_name("sql")
 
-# Triage repo CASE_STUDY §1: activity_1m keeps about fifteen days. Two days' margin, so
-# a day at the retention edge is labelled expired rather than reported as "no contact".
+# CASE_STUDY §1: the original probe kept activity_1m for about fifteen days. Two days' margin, so a
+# day at the retention edge is labelled expired rather than reported as "no contact". A source that
+# says its retention (`SourceConfig.detail_days`) sets the horizon instead (`minute_horizon`).
 MINUTE_HORIZON_DAYS = 13
+RETENTION_MARGIN_DAYS = 2
 QUERY_TIMEOUT_SECONDS = 540
 CONTEXT_WINDOW_SECONDS = 300
 
@@ -155,10 +157,23 @@ class _CollectingSink:
         self.audits.append(audit)
 
 
-def plan_days(cases: Sequence[Case], latest: UtcDay) -> tuple[tuple[date, ...], tuple[date, ...]]:
-    """Match days still inside the minute horizon, plus the latest complete day; and the rest."""
-    horizon = latest.value - timedelta(days=MINUTE_HORIZON_DAYS)
+def minute_horizon(config: SourceConfig) -> int | None:
+    """Days of minute detail worth querying: the source's retention less the margin, or None when
+    the source keeps every loaded day."""
+    if config.detail_days is None:
+        return None
+    return max(config.detail_days - RETENTION_MARGIN_DAYS, 0)
+
+
+def plan_days(
+    cases: Sequence[Case], latest: UtcDay, horizon_days: int | None = MINUTE_HORIZON_DAYS
+) -> tuple[tuple[date, ...], tuple[date, ...]]:
+    """Match days still inside the minute horizon, plus the latest complete day; and the rest.
+    With no horizon nothing has expired."""
     match_days = {day for case in cases for day in case.days}
+    if horizon_days is None:
+        return tuple(sorted(match_days | {latest.value})), ()
+    horizon = latest.value - timedelta(days=horizon_days)
     queried = sorted({day for day in match_days if day >= horizon} | {latest.value})
     expired = sorted(day for day in match_days if day < horizon)
     return tuple(queried), tuple(expired)
@@ -189,18 +204,31 @@ def reads_after_view(case: Case, horizon: date) -> bool:
 class LiveSession:
     """One read-only connection for both phases. A failure is labelled, never raised."""
 
-    def __init__(self, client: ClientLike | None, error: str | None = None) -> None:
+    def __init__(
+        self,
+        client: ClientLike | None,
+        error: str | None = None,
+        *,
+        horizon_days: int | None = MINUTE_HORIZON_DAYS,
+    ) -> None:
         self._sink = _CollectingSink()
         self._runner = ReadOnlyQueryRunner(client, self._sink) if client is not None else None
         self._error = error
         self._loader = SqlLoader(SQL_ROOT)
+        self.horizon_days = horizon_days
+        """Days of minute detail the source still holds; None when it keeps every loaded day."""
 
     @classmethod
     def connect(cls, config: SourceConfig) -> LiveSession:
+        horizon = minute_horizon(config)
         try:
-            return cls(create_source_client(config))
+            return cls(create_source_client(config), horizon_days=horizon)
         except Exception as exc:
-            return cls(None, f"could not connect to the source ({exc.__class__.__name__})")
+            return cls(
+                None,
+                f"could not connect to the source ({exc.__class__.__name__})",
+                horizon_days=horizon,
+            )
 
     def __enter__(self) -> LiveSession:
         return self
@@ -217,7 +245,7 @@ class LiveSession:
     def gather(self, cases: Sequence[Case], now: datetime) -> LiveContext:
         """Phase 1: minute contact, address sharing and long flows for every case."""
         latest = UtcDay.latest_completed(now)
-        days_queried, days_expired = plan_days(cases, latest)
+        days_queried, days_expired = plan_days(cases, latest, self.horizon_days)
         if self._runner is None:
             return LiveContext(
                 status="unavailable",
@@ -391,13 +419,19 @@ class LiveSession:
         contact there is nothing to compare."""
         if self._runner is None or live.status != "queried" or not review or not live.latest_day:
             return live
-        horizon = live.latest_day - timedelta(days=MINUTE_HORIZON_DAYS)
+        if self.horizon_days is None:
+            # The source keeps every loaded day: read the same span the original horizon gave,
+            # from the day before the earliest contact, so an old match costs no more queries.
+            horizon = min(case.days[0] for case in review) - timedelta(days=1)
+            last = min(live.latest_day, horizon + timedelta(days=MINUTE_HORIZON_DAYS))
+        else:
+            horizon = live.latest_day - timedelta(days=self.horizon_days)
+            last = live.latest_day
         hosts = sorted({case.source_host for case in review if reads_after_view(case, horizon)})
         if not hosts:
             return replace(live, destinations={})
         days = tuple(
-            horizon + timedelta(days=offset)
-            for offset in range((live.latest_day - horizon).days + 1)
+            horizon + timedelta(days=offset) for offset in range((last - horizon).days + 1)
         )
         query = self._load("ioc_host_after", 1)
         rows: dict[str, list[DestinationDay]] = defaultdict(list)
