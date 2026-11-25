@@ -5,9 +5,11 @@ Produce the immutable evidence stream for one completed UTC day.
 ## Preconditions
 
 - Day `D` is eligible from `D+1 08:00 UTC`. An earlier run is rejected, not queued.
-- Source detail expires in roughly fifteen days (`CASE_STUDY` §1). Beyond that a day can be
-  streamed back from storage but not re-derived.
-- `.env` present at mode `0600` with read-only ClickHouse credentials.
+- The day's Zeek logs are loaded: `network-behaviour load-zeek --day D --logs <dir>`. Zeek writes a
+  connection when it ends, so give it D+1's logs too (a folder of dated subfolders does this itself).
+- The source keeps a loaded day's detail until it is reloaded or removed. The original probe kept about
+  fifteen days (`CASE_STUDY` §1); `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` reproduces that limit.
+- `.env` present at mode `0600`.
 
 ## One day
 

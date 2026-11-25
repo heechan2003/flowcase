@@ -68,7 +68,7 @@ def test_run_day_dry_run_is_offline_and_requires_no_queue_capacity(
     assert "status: ready" in capsys.readouterr().out
 
 
-def test_published_run_day_streams_the_stored_feed_without_clickhouse_configuration(
+def test_published_run_day_streams_the_stored_feed_without_source_configuration(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsysbinary: pytest.CaptureFixture[bytes],
@@ -118,9 +118,8 @@ def test_published_run_day_streams_the_stored_feed_without_clickhouse_configurat
     monkeypatch.setenv("NETWORK_BEHAVIOUR_DUCKDB_PATH", str(database))
     monkeypatch.setenv("NETWORK_BEHAVIOUR_MIGRATION_DIR", str(migrations))
     monkeypatch.setenv("NETWORK_BEHAVIOUR_LOCK_PATH", str(tmp_path / "triage.lock"))
-    monkeypatch.delenv("CLICKHOUSE_HOST", raising=False)
-    monkeypatch.delenv("CLICKHOUSE_USER", raising=False)
-    monkeypatch.delenv("CLICKHOUSE_PASSWORD", raising=False)
+    # A published day streams back from the store: the source is never opened, even when absent.
+    monkeypatch.setenv("NETWORK_BEHAVIOUR_SOURCE_PATH", str(tmp_path / "absent-source.duckdb"))
 
     assert main(["run-day", "--day", str(day)]) == 0
 

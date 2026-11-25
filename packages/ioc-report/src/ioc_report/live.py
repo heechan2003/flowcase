@@ -19,13 +19,13 @@ from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from types import TracebackType
 
-from network_behaviour.config import ClickHouseConfig
+from network_behaviour.config import SourceConfig
 from network_behaviour.source.client import (
     ClientLike,
     QueryAudit,
     ReadOnlyQueryRunner,
     SourceQueryError,
-    create_clickhouse_client,
+    create_source_client,
 )
 from network_behaviour.source.sql import SqlKind, SqlLoader, SqlQuery
 from network_behaviour.time import UtcBounds, UtcDay
@@ -196,9 +196,9 @@ class LiveSession:
         self._loader = SqlLoader(SQL_ROOT)
 
     @classmethod
-    def connect(cls, config: ClickHouseConfig) -> LiveSession:
+    def connect(cls, config: SourceConfig) -> LiveSession:
         try:
-            return cls(create_clickhouse_client(config))
+            return cls(create_source_client(config))
         except Exception as exc:
             return cls(None, f"could not connect to the source ({exc.__class__.__name__})")
 

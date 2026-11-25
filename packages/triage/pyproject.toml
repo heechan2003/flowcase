@@ -9,10 +9,11 @@ description = "Deterministic behavioural triage for observed network clients"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "clickhouse-connect>=0.8,<1",
     "duckdb>=1.2,<2",
     "pyarrow>=20,<22",
     "python-dotenv>=1.1,<2",
+    # DuckDB imports pytz to return TIMESTAMP WITH TIME ZONE values to Python.
+    "pytz>=2024.1",
     "tldextract==5.3.1",
 ]
 
@@ -31,8 +32,10 @@ where = ["src"]
 include = ["network_behaviour*"]
 
 [tool.pytest.ini_options]
-addopts = "--strict-config --strict-markers"
+addopts = "--strict-config --strict-markers -p zeek_logs"
 testpaths = ["tests"]
+# Shared synthetic builders (Zeek logs) importable from any test directory.
+pythonpath = ["tests/support"]
 
 [tool.ruff]
 line-length = 100
@@ -45,7 +48,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+mypy_path = "tests/support"
 
 [[tool.mypy.overrides]]
-module = ["clickhouse_connect", "clickhouse_connect.*", "pyarrow", "pyarrow.*"]
+module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true

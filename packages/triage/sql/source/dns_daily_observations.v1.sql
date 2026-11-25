@@ -1,7 +1,7 @@
 SELECT
-    toDate(time, 'UTC') AS day,
+    CAST(time AS DATE) AS day,
     client_ip,
-    lower(hex(MD5(server_ip))) AS resolver_id,
+    md5(server_ip) AS resolver_id,
     sum(complete_sessions) AS complete_sessions,
     sum(unanswered_sessions) AS unanswered_sessions,
     sum(unsolicited_sessions) AS unsolicited_sessions,
@@ -9,7 +9,7 @@ SELECT
     sum(response_packets) AS response_packets,
     sum(unanswered_query_packets) AS unanswered_query_packets,
     sum(unsolicited_response_packets) AS unsolicited_response_packets,
-    sum(toFloat64(mean_service_nanos) * toFloat64(complete_sessions))
+    sum(CAST(mean_service_nanos AS DOUBLE) * CAST(complete_sessions AS DOUBLE))
         AS weighted_service_nanos,
     sum(complete_sessions) AS weighted_service_sessions
 FROM flow.dns_pairs

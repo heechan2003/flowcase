@@ -89,7 +89,7 @@ def test_publication_hides_day_until_scoring_then_publishes_both_grains(
         FROM ops.pipeline_run
         """
     ).fetchone() == (
-        "phase3-source-bundle-v3",
+        "zeek-source-bundle-v1",
         '{"day_activity_observations":1}',
         "day-aggregation-v2",
         "activity-rate-relative-v1",

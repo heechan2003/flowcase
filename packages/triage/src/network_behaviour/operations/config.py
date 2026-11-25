@@ -34,7 +34,7 @@ class OperationsPaths:
     def from_env(cls, database_path: Path, env: Mapping[str, str] | None = None) -> OperationsPaths:
         values = os.environ if env is None else env
         return cls(
-            Path(values.get("NETWORK_BEHAVIOUR_SQL_DIR", "sql/clickhouse")),
+            Path(values.get("NETWORK_BEHAVIOUR_SQL_DIR", "sql/source")),
             Path(values.get("NETWORK_BEHAVIOUR_LOCK_PATH", f"{database_path}.lock")),
         )
 

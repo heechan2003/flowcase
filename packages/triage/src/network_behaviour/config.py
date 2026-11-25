@@ -32,13 +32,6 @@ def load_default_environment(path: Path = DEFAULT_ENV_FILE) -> None:
         raise ConfigurationError(f"credential file {path} could not be loaded")
 
 
-def _required(env: Mapping[str, str], name: str) -> str:
-    value = env.get(name, "").strip()
-    if not value:
-        raise ConfigurationError(f"{name} is required")
-    return value
-
-
 def _positive_int(env: Mapping[str, str], name: str, default: int) -> int:
     raw = env.get(name, str(default))
     try:
@@ -50,73 +43,41 @@ def _positive_int(env: Mapping[str, str], name: str, default: int) -> int:
     return value
 
 
-def _boolean(env: Mapping[str, str], name: str, default: bool) -> bool:
-    raw = env.get(name)
-    if raw is None:
-        return default
-    normalized = raw.strip().lower()
-    if normalized in {"1", "true", "yes", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "off"}:
-        return False
-    raise ConfigurationError(f"{name} must be a boolean")
+DEFAULT_SOURCE_PATH = Path("data/source.duckdb")
 
 
 @dataclass(frozen=True, slots=True)
-class ClickHouseConfig:
-    """Connection settings that enforce a read-only ClickHouse session."""
+class SourceConfig:
+    """Where the four source tables live: a DuckDB file the Zeek loader writes and every reader
+    opens read-only."""
 
-    host: str
-    port: int
-    username: str
-    password: str
-    secure: bool = False
-    readonly: bool = True
-    connect_timeout_seconds: int = 10
-    send_receive_timeout_seconds: int = 300
+    path: Path
     query_timeout_seconds: int = 900
+    detail_days: int | None = None
+    """How long the source keeps a day's detail. None: as long as it stays loaded. The original
+    probe kept about fifteen days (`CASE_STUDY` §1); set it to reproduce that."""
 
     def __post_init__(self) -> None:
-        if not self.host.strip() or not self.username.strip() or not self.password:
-            raise ConfigurationError("ClickHouse host, username, and password are required")
-        if not 1 <= self.port <= 65535:
-            raise ConfigurationError("CLICKHOUSE_PORT must be between 1 and 65535")
-        if not self.readonly:
-            raise ConfigurationError("CLICKHOUSE_READONLY must remain true")
-        for name, value in (
-            ("connect timeout", self.connect_timeout_seconds),
-            ("send/receive timeout", self.send_receive_timeout_seconds),
-            ("query timeout", self.query_timeout_seconds),
-        ):
-            if value <= 0:
-                raise ConfigurationError(f"{name} must be positive")
-
-    def __repr__(self) -> str:
-        return (
-            "ClickHouseConfig("
-            f"host={self.host!r}, port={self.port!r}, username={self.username!r}, "
-            "password=<redacted>, "
-            f"secure={self.secure!r}, readonly={self.readonly!r}, "
-            f"connect_timeout_seconds={self.connect_timeout_seconds!r}, "
-            f"send_receive_timeout_seconds={self.send_receive_timeout_seconds!r}, "
-            f"query_timeout_seconds={self.query_timeout_seconds!r})"
-        )
+        if not str(self.path).strip():
+            raise ConfigurationError("NETWORK_BEHAVIOUR_SOURCE_PATH must not be empty")
+        if self.query_timeout_seconds <= 0:
+            raise ConfigurationError("query timeout must be positive")
+        if self.detail_days is not None and self.detail_days <= 0:
+            raise ConfigurationError("NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS must be positive")
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> ClickHouseConfig:
+    def from_env(cls, env: Mapping[str, str] | None = None) -> SourceConfig:
         if env is None:
             load_default_environment()
         values = os.environ if env is None else env
+        raw = values.get("NETWORK_BEHAVIOUR_SOURCE_PATH", "").strip()
+        detail = values.get("NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS", "").strip()
         return cls(
-            host=_required(values, "CLICKHOUSE_HOST"),
-            port=_positive_int(values, "CLICKHOUSE_PORT", 8123),
-            username=_required(values, "CLICKHOUSE_USER"),
-            password=_required(values, "CLICKHOUSE_PASSWORD"),
-            secure=_boolean(values, "CLICKHOUSE_SECURE", False),
-            readonly=_boolean(values, "CLICKHOUSE_READONLY", True),
-            connect_timeout_seconds=_positive_int(values, "CLICKHOUSE_CONNECT_TIMEOUT", 10),
-            send_receive_timeout_seconds=_positive_int(
-                values, "CLICKHOUSE_SEND_RECEIVE_TIMEOUT", 300
+            path=Path(raw) if raw else DEFAULT_SOURCE_PATH,
+            query_timeout_seconds=_positive_int(
+                values, "NETWORK_BEHAVIOUR_SOURCE_QUERY_TIMEOUT", 900
             ),
-            query_timeout_seconds=_positive_int(values, "CLICKHOUSE_QUERY_TIMEOUT", 900),
+            detail_days=(
+                _positive_int(values, "NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS", 1) if detail else None
+            ),
         )

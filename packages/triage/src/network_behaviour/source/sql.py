@@ -23,8 +23,7 @@ _APPROVED_DATA_TABLES = {
     "flow.dns_pairs",
     "flow.long_flows",
 }
-_APPROVED_METADATA_TABLES = {"system.columns", "system.tables"}
-_APPROVED_EXTERNAL_TABLES = {"candidate_detail_keys"}
+_APPROVED_METADATA_TABLES = {"information_schema.columns", "information_schema.tables"}
 _FORBIDDEN_KEYWORDS = re.compile(
     r"\b(ALTER|ATTACH|CREATE|DELETE|DETACH|DROP|INSERT|KILL|OPTIMIZE|RENAME|TRUNCATE|UPDATE)\b",
     re.IGNORECASE,
@@ -96,7 +95,7 @@ def validate_sql(query: SqlQuery) -> None:
 
     referenced_tables = {match.group(1).lower() for match in _TABLE_REFERENCE.finditer(normalized)}
     allowed = _APPROVED_METADATA_TABLES if query.kind is SqlKind.METADATA else _APPROVED_DATA_TABLES
-    unexpected = referenced_tables - allowed - _APPROVED_EXTERNAL_TABLES
+    unexpected = referenced_tables - allowed
     if unexpected:
         raise SqlSafetyError(f"source SQL references an unapproved table: {sorted(unexpected)[0]}")
     if query.kind is SqlKind.DATA and not query.bounded:

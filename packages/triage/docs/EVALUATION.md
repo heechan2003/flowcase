@@ -119,7 +119,7 @@ inside a tie group, because that share is not ordered at all.
 Run across at least one full week including a weekend. Published output has ranged 1,510 to 19,676 episodes per
 day, tracking the academic week (`CASE_STUDY` §11), so a single weekday measurement is not a projection.
 
-Report: episodes and queued hosts per day across the week; ClickHouse query footprint; projected retained
+Report: episodes and queued hosts per day across the week; source query footprint; projected retained
 growth against the storage ceiling; runtime.
 
 ## 5. Conjunction redundancy

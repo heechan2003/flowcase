@@ -19,8 +19,8 @@ is never written. Sections not requested are written into the bundle as *not mea
 that is the point of the file, and a silently short bundle is the failure it exists to prevent.
 
 Day D is reconstructed from retained history by default, which costs no live query and works after
-the source detail has expired. `--source` re-derives it from ClickHouse instead, which is the only
-way to measure the DNS family; it reports its own footprint either way.
+the source detail has expired. `--source` re-derives it from the source tables instead, which is the
+only way to measure the DNS family; it reports its own footprint either way.
 
 ## Cost
 
@@ -56,7 +56,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
 from network_behaviour.config import (  # noqa: E402
-    ClickHouseConfig,
+    SourceConfig,
     load_default_environment,
 )
 from network_behaviour.evaluation import (  # noqa: E402
@@ -88,7 +88,7 @@ from network_behaviour.operations.config import OperationsPaths  # noqa: E402
 from network_behaviour.publication import StorageGuard  # noqa: E402
 from network_behaviour.source.client import (  # noqa: E402
     ReadOnlyQueryRunner,
-    create_clickhouse_client,
+    create_source_client,
 )
 from network_behaviour.storage.repository import (  # noqa: E402
     DuckDbStore,
@@ -165,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
     day_bundle.add_argument(
         "--source",
         action="store_true",
-        help="re-derive day D from ClickHouse instead of retained history",
+        help="re-derive day D from the source tables instead of retained history",
     )
     day_bundle.add_argument("--output", type=Path, default=ROOT / "docs" / "evaluations")
     day_bundle.add_argument("--stdout", action="store_true", help="print, write nothing")
@@ -389,13 +389,13 @@ def _load_day(args: argparse.Namespace, storage: StorageConfig) -> DayInputs:
         with open_product_database(storage.database_path) as connection:
             return load_from_history(connection, args.day)
     paths = OperationsPaths.from_env(storage.database_path)
-    clickhouse = ClickHouseConfig.from_env()
-    with ReadOnlyQueryRunner(create_clickhouse_client(clickhouse)) as runner:
+    source = SourceConfig.from_env()
+    with ReadOnlyQueryRunner(create_source_client(source)) as runner:
         return load_from_source(
             runner,
             paths.sql_dir,
             args.day,
-            timeout_seconds=clickhouse.query_timeout_seconds,
+            timeout_seconds=source.query_timeout_seconds,
         )
 
 

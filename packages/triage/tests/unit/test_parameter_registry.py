@@ -48,7 +48,7 @@ def _history_confidence_edges() -> list[int]:
 def _long_flow_min_bytes() -> int:
     """The floor lives in SQL literals, so read it back from every file that carries one."""
     values = set()
-    for path in sorted((ROOT / "sql" / "clickhouse").glob("*.sql")):
+    for path in sorted((ROOT / "sql" / "source").glob("*.sql")):
         for line in path.read_text().splitlines():
             if "up_bytes + down_bytes >=" in line:
                 values.add(int(line.split(">=")[1].strip().rstrip(";")))

@@ -16,7 +16,7 @@ from network_behaviour.source.day import SourceDayReader
 from network_behaviour.source.sql import SqlQuery
 from network_behaviour.time import UtcBounds, UtcDay
 
-SQL_ROOT = Path(__file__).parents[3] / "sql" / "clickhouse"
+SQL_ROOT = Path(__file__).parents[3] / "sql" / "source"
 DAY = UtcDay.parse("2026-07-10")
 
 

@@ -58,5 +58,5 @@ files = ["src", "tests", "evals"]
 mypy_path = "../triage/src"
 
 [[tool.mypy.overrides]]
-module = ["clickhouse_connect", "clickhouse_connect.*", "pyarrow", "pyarrow.*"]
+module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true

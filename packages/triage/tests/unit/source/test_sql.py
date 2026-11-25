@@ -4,7 +4,7 @@ import pytest
 
 from network_behaviour.source.sql import SqlKind, SqlLoader, SqlQuery, SqlSafetyError, validate_sql
 
-SQL_ROOT = Path(__file__).parents[3] / "sql" / "clickhouse"
+SQL_ROOT = Path(__file__).parents[3] / "sql" / "source"
 
 
 def test_repository_contract_queries_pass_static_safety() -> None:
@@ -44,7 +44,7 @@ def test_dns_query_is_direct_bounded_and_aggregate_only() -> None:
 
     assert query.bounded and query.aggregate_only
     assert "FROM flow.dns_pairs" in query.text
-    assert "MD5(server_ip)" in query.text
+    assert "md5(server_ip)" in query.text
     assert "client_tag" not in query.text
 
 

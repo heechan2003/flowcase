@@ -115,7 +115,11 @@ before source is read or the gate runs, so `drift-gates-v2` changes no published
 
 ### Authorized sources
 
-Only these four tables:
+Only these four tables. They live in a DuckDB source file that `network-behaviour load-zeek` writes from
+Zeek logs, one UTC day at a time (`zeek-source-bundle-v1`); every reader opens it read-only. The column-by-column
+mapping and its approximations are in the repository's `docs/SOURCE_CONTRACT.md`. The original deployment read the
+same four tables from a commercial flow probe through ClickHouse (`phase3-source-bundle-v3`); the queries kept
+their names, versions and output columns across the move.
 
 | Source | Authorized use |
 |---|---|
@@ -141,7 +145,9 @@ Stated here because their absence has already produced incorrect designs:
   (`CASE_STUDY` §17). *Amended 2026-10-22:* this bullet said locally-served exposure was not observable in
   these sources, which §7 measured to be false. *Amended 2026-11-13:* it said served exposure was observable
   only through long flows, which §17 measured to be incomplete. No component reads direction or the serving
-  shape, so neither amendment moves a version identifier or affects a published day.
+  shape, so neither amendment moves a version identifier or affects a published day. *Amended 2026-11-25:* the
+  Zeek loader knows who opened every connection, but it keeps the original columns, so all of this still
+  holds of the tables.
 - **`activity_1m` records occupied minute buckets, not connection events.** A held-open connection
   yields gaps of exactly one minute. Any timing measure must impose a minimum mean gap or it measures session
   continuity rather than scheduling (`CASE_STUDY` §10).
@@ -176,7 +182,8 @@ or endpoint string is retained in either grain.** Ratios and shares are derived 
 | Package | `0.3.0` |
 | DuckDB schema | `10` |
 | Domain codes | `domain-codes-v3` — evidence-group codes 8, 10, 11 and 12 retired, never reused |
-| Normalization bundle | `service-id-v1/category-id-v1/port-groups-v1/bitmap-288-lsb-v1/tldextract-5.3.1` |
+| Source query bundle | `zeek-source-bundle-v1` — the `sql/source/` queries over Zeek-loaded tables; `phase3-source-bundle-v2`/`-v3` were the ClickHouse originals |
+| Normalization bundle | `service-id-v1/category-id-v1/port-groups-v1/bitmap-288-lsb-v1/tldextract-5.3.1`, with `+synthetic` on a day published in a synthetic world (`NETWORK_BEHAVIOUR_SYNTHETIC`) |
 | Day aggregation | `day-aggregation-v2` |
 | Reconciliation | `activity-rate-relative-v1` |
 | Behavioural support | `behavioural-support-v3` — addresses with at least one service row; DNS scores its own population |
@@ -322,8 +329,8 @@ stored digest must reconcile.
 
 `network-behaviour run-day --day YYYY-MM-DD` writes the header-first stream to stdout. `--dry-run` performs
 local eligibility and database preflight. Administrative commands remain supported and hidden from the
-release-facing help surface: `source-check`, chronological `backfill` and `replay`, `storage-report`, `backup`,
-`restore`. Range processing is sequential and stops on the first failed day.
+release-facing help surface: `load-zeek`, `source-check`, chronological `backfill` and `replay`,
+`storage-report`, `backup`, `restore`. Range processing is sequential and stops on the first failed day.
 
 ## Tier 5 — Claim limits and acceptance
 

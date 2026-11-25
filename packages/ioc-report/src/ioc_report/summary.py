@@ -245,7 +245,7 @@ def coverage_items(
         items.append(
             CoverageItem(
                 "Query footprint",
-                f"{len(live.audits)} ClickHouse quer(ies), {rows:,} rows and {size / 1e9:.2f} GB "
+                f"{len(live.audits)} source quer(ies), {rows:,} rows and {size / 1e9:.2f} GB "
                 f"read in {seconds:.0f} s; aggregate-only, read-only.",
             )
         )

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address, ip_address
 
+from network_behaviour.synthetic import SYNTHETIC_PUBLIC_NETWORKS, synthetic_world
+
 
 class IpNormalizationError(ValueError):
     """Raised when a source value is not a supported IPv4 or IPv6 address."""
@@ -34,6 +36,8 @@ class NormalizedIp:
     @property
     def is_public_destination(self) -> bool:
         parsed = ip_address(self.value)
+        if synthetic_world() and any(parsed in network for network in SYNTHETIC_PUBLIC_NETWORKS):
+            return True
         return parsed.is_global and not (
             parsed.is_private
             or parsed.is_loopback
