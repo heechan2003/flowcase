@@ -26,7 +26,13 @@ from ioc_report.casefile import (
 from ioc_report.contact import Contact, Evidence, FlowContact
 from ioc_report.history import HistoryContext, indicator_service
 from ioc_report.knowledge import name_facts
-from ioc_report.live import CONTEXT_WINDOW_SECONDS, ContextRow, LiveContext
+from ioc_report.live import (
+    CONTEXT_WINDOW_SECONDS,
+    ContextRow,
+    LiveContext,
+    after_days,
+    after_rows,
+)
 from ioc_report.rules import (
     ESTABLISHED_MIN_ADDRESSES,
     ESTABLISHED_MIN_DAYS,
@@ -494,7 +500,7 @@ def _days(evidence: Evidence, live: LiveContext, after: AfterView | None) -> tup
     if after is None or live.destinations is None:
         return ()
     case = evidence.case
-    rows = live.destinations.get(case.source_host, ())
+    rows = after_rows(live, case)
     named: dict[date, set[str]] = defaultdict(set)
     active: set[date] = set()
     for row in rows:
@@ -513,5 +519,5 @@ def _days(evidence: Evidence, live: LiveContext, after: AfterView | None) -> tup
             silent=day not in active,
             match=day in case.days,
         )
-        for day in sorted(live.destination_days)
+        for day in sorted(after_days(live, case))
     )

@@ -37,9 +37,11 @@ SQL_ROOT = Path(__file__).with_name("sql")
 
 # CASE_STUDY §1: the original probe kept activity_1m for about fifteen days. Two days' margin, so a
 # day at the retention edge is labelled expired rather than reported as "no contact". A source that
-# says its retention (`SourceConfig.detail_days`) sets the horizon instead (`minute_horizon`).
+# says its retention (`SourceConfig.detail_days`) sets the horizon instead (`minute_horizon`); one
+# that keeps every loaded day has none, and each case reads the same span after its first match.
 MINUTE_HORIZON_DAYS = 13
 RETENTION_MARGIN_DAYS = 2
+DEFAULT_RETENTION_DAYS = MINUTE_HORIZON_DAYS + RETENTION_MARGIN_DAYS
 QUERY_TIMEOUT_SECONDS = 540
 CONTEXT_WINDOW_SECONDS = 300
 
@@ -131,6 +133,10 @@ class LiveContext:
     """"queried", "skipped" (--no-live) or "unavailable"."""
     queried_at: datetime | None = None
     latest_day: date | None = None
+    """The last complete day the source holds: the wall-clock day, or the source's last loaded day
+    when that is earlier and the source keeps every loaded day."""
+    retention_days: int | None = DEFAULT_RETENTION_DAYS
+    """Days of minute detail the source keeps; None when it keeps every loaded day."""
     days_queried: tuple[date, ...] = ()
     days_expired: tuple[date, ...] = ()
     long_flow_window: UtcBounds | None = None
@@ -160,9 +166,33 @@ class _CollectingSink:
 def minute_horizon(config: SourceConfig) -> int | None:
     """Days of minute detail worth querying: the source's retention less the margin, or None when
     the source keeps every loaded day."""
-    if config.detail_days is None:
+    return horizon_for(config.detail_days)
+
+
+def horizon_for(retention_days: int | None) -> int | None:
+    if retention_days is None:
         return None
-    return max(config.detail_days - RETENTION_MARGIN_DAYS, 0)
+    return max(retention_days - RETENTION_MARGIN_DAYS, 0)
+
+
+def after_days(live: LiveContext, case: Case) -> tuple[date, ...]:
+    """The phase 3 days this case's after view reads. Under a retention horizon every case shares
+    the horizon's days; with none, each case has its own span from the day before its first match
+    (`LiveSession.add_destinations`)."""
+    if live.retention_days is not None:
+        return live.destination_days
+    start = case.days[0] - timedelta(days=1)
+    end = start + timedelta(days=MINUTE_HORIZON_DAYS)
+    return tuple(day for day in live.destination_days if start <= day <= end)
+
+
+def after_rows(live: LiveContext, case: Case) -> tuple[DestinationDay, ...]:
+    """The host's phase 3 rows on this case's `after_days`."""
+    rows = (live.destinations or {}).get(case.source_host, ())
+    if live.retention_days is not None:
+        return rows
+    days = set(after_days(live, case))
+    return tuple(row for row in rows if row.day in days)
 
 
 def plan_days(
@@ -209,25 +239,26 @@ class LiveSession:
         client: ClientLike | None,
         error: str | None = None,
         *,
-        horizon_days: int | None = MINUTE_HORIZON_DAYS,
+        retention_days: int | None = DEFAULT_RETENTION_DAYS,
     ) -> None:
         self._sink = _CollectingSink()
         self._runner = ReadOnlyQueryRunner(client, self._sink) if client is not None else None
         self._error = error
         self._loader = SqlLoader(SQL_ROOT)
-        self.horizon_days = horizon_days
-        """Days of minute detail the source still holds; None when it keeps every loaded day."""
+        self.retention_days = retention_days
+        """Days of minute detail the source keeps; None when it keeps every loaded day."""
+        self.horizon_days = horizon_for(retention_days)
+        """Days of minute detail worth querying, back from the latest day; None with no limit."""
 
     @classmethod
     def connect(cls, config: SourceConfig) -> LiveSession:
-        horizon = minute_horizon(config)
         try:
-            return cls(create_source_client(config), horizon_days=horizon)
+            return cls(create_source_client(config), retention_days=config.detail_days)
         except Exception as exc:
             return cls(
                 None,
                 f"could not connect to the source ({exc.__class__.__name__})",
-                horizon_days=horizon,
+                retention_days=config.detail_days,
             )
 
     def __enter__(self) -> LiveSession:
@@ -251,6 +282,7 @@ class LiveSession:
                 status="unavailable",
                 queried_at=now,
                 latest_day=latest.value,
+                retention_days=self.retention_days,
                 days_expired=days_expired,
                 error=self._error,
             )
@@ -266,6 +298,11 @@ class LiveSession:
         addresses: dict[str, list[AddressDay]] = defaultdict(list)
         long_flows: dict[Pair, list[PairFlows]] = defaultdict(list)
         try:
+            if self.horizon_days is None:
+                # A source that keeps every loaded day may end before the wall clock does (older
+                # logs, a pinned demo): read and report no day it never loaded.
+                latest = self._loaded_through(latest, window)
+                days_queried, days_expired = plan_days(cases, latest, self.horizon_days)
             for day in days_queried:
                 bounds = UtcDay(day).bounds
                 outcome = self._runner.run(
@@ -332,6 +369,7 @@ class LiveSession:
                 status="unavailable",
                 queried_at=now,
                 latest_day=latest.value,
+                retention_days=self.retention_days,
                 days_expired=days_expired,
                 audits=tuple(self._sink.audits),
                 error=str(exc),
@@ -340,6 +378,7 @@ class LiveSession:
             status="queried",
             queried_at=now,
             latest_day=latest.value,
+            retention_days=self.retention_days,
             days_queried=days_queried,
             days_expired=days_expired,
             long_flow_window=window,
@@ -413,25 +452,38 @@ class LiveSession:
 
     def add_destinations(self, live: LiveContext, review: Sequence[Case]) -> LiveContext:
         """Phase 3, review cases only: every destination each host exchanged traffic with on every
-        day inside the minute horizon, one query per day so none reads more than a day of the
-        source. Only cases
-        whose first match day is still inside the horizon are read: without the days around the
-        contact there is nothing to compare."""
+        day it reads, one query per day so none reads more than a day of the source.
+
+        Under a retention horizon the days are the horizon's, and only cases whose first match day
+        is still inside it are read: without the days around the contact there is nothing to
+        compare. A source that keeps every loaded day has no horizon: each case reads the span the
+        original horizon gave, from the day before its first match to 13 days later or the latest
+        day, so an old match costs no more queries and a later case still sees its own after-days.
+        The days read are the union of those spans (`after_days` gives each case its own)."""
         if self._runner is None or live.status != "queried" or not review or not live.latest_day:
             return live
+        latest = live.latest_day
         if self.horizon_days is None:
-            # The source keeps every loaded day: read the same span the original horizon gave,
-            # from the day before the earliest contact, so an old match costs no more queries.
-            horizon = min(case.days[0] for case in review) - timedelta(days=1)
-            last = min(live.latest_day, horizon + timedelta(days=MINUTE_HORIZON_DAYS))
+            spans = {
+                start: min(latest, start + timedelta(days=MINUTE_HORIZON_DAYS))
+                for start in {case.days[0] - timedelta(days=1) for case in review}
+            }
+            readable = [case for case in review if case.days[0] - timedelta(days=1) <= latest]
         else:
-            horizon = live.latest_day - timedelta(days=self.horizon_days)
-            last = live.latest_day
-        hosts = sorted({case.source_host for case in review if reads_after_view(case, horizon)})
+            horizon = latest - timedelta(days=self.horizon_days)
+            spans = {horizon: latest}
+            readable = [case for case in review if reads_after_view(case, horizon)]
+        hosts = sorted({case.source_host for case in readable})
         if not hosts:
             return replace(live, destinations={})
         days = tuple(
-            horizon + timedelta(days=offset) for offset in range((last - horizon).days + 1)
+            sorted(
+                {
+                    start + timedelta(days=offset)
+                    for start, last in spans.items()
+                    for offset in range((last - start).days + 1)
+                }
+            )
         )
         query = self._load("ioc_host_after", 1)
         rows: dict[str, list[DestinationDay]] = defaultdict(list)
@@ -467,6 +519,18 @@ class LiveSession:
             destination_days=days,
             audits=tuple(self._sink.audits),
         )
+
+    def _loaded_through(self, latest: UtcDay, window: UtcBounds) -> UtcDay:
+        """The earlier of `latest` and the last day the source holds minute detail for in the
+        window; `latest` when it holds none."""
+        assert self._runner is not None
+        outcome = self._runner.run(self._load("ioc_source_extent", 1), bounds=window)
+        rows = list(outcome.dictionaries())
+        last = rows[0]["last_minute"] if rows else None
+        if last is None:
+            return latest
+        loaded = _as_utc(last).date()
+        return UtcDay(loaded) if loaded < latest.value else latest
 
     def _load(self, name: str, version: int) -> SqlQuery:
         return self._loader.load(

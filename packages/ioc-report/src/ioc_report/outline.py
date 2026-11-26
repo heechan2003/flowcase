@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from ioc_report.casefile import next_step_items
 from ioc_report.digest import Line
 from ioc_report.knowledge import family_profile, other_list_background, service_for
+from ioc_report.live import horizon_for
 from ioc_report.rules import NEW_NAME_DAYS, REVIEW
 from ioc_report.summary import CaseResult
 
@@ -42,17 +43,38 @@ SYSTEM_ACTION = {
     "mail": "Look for mail linking to the flagged domain in the 24 hours before the visit.",
 }
 CAVEAT_ACTION = {
-    "live": "Run each feed within 13 days of arrival, so the live source re-checks every contact.",
     "stream": "Keep the triage publisher running daily, so every match day is published (K3).",
     "retained": "Keep the triage publisher running daily, so every match day is retained (K4).",
     "e3-name": "Run with NAME_LOOKUP=rdap, so each name E3 rests on has a registration date.",
 }
 CAVEAT_WOULD_CHANGE = {
-    "live": "a re-query of the match day inside the source's 13-day window",
     "stream": "the match day published, so the stream check can run",
     "retained": "the match day retained, so the 5-minute schedule check can run",
     "e3-name": "the registration date of the name E3 rests on",
 }
+
+
+def _caveat_action(code: str, result: CaseResult) -> str:
+    if code != "live":
+        return CAVEAT_ACTION[code]
+    retention = result.evidence.live_retention_days
+    if retention is None:
+        return "Run the report with the live source, so it re-checks every contact."
+    return (
+        f"Run each feed within {horizon_for(retention)} days of arrival, so the live source "
+        "re-checks every contact."
+    )
+
+
+def _caveat_would_change(code: str, result: CaseResult) -> str:
+    if code != "live":
+        return CAVEAT_WOULD_CHANGE[code]
+    retention = result.evidence.live_retention_days
+    if retention is None:
+        return "a re-query of the match day from the live source"
+    return f"a re-query of the match day inside the source's {horizon_for(retention)}-day window"
+
+
 KEEP_WOULD_CHANGE = {
     "K1": "the endpoint and web-gateway records of what the visit fetched or started",
     "K2": "the process that used the tunnel and what it reached",
@@ -128,7 +150,7 @@ def actions(results: Sequence[CaseResult]) -> list[Action]:
     for number, result in enumerate(results, 1):
         if result.disposition != REVIEW:
             for caveat in result.caveats:
-                caveated[CAVEAT_ACTION[caveat.code]].add(number)
+                caveated[_caveat_action(caveat.code, result)].add(number)
     found += [
         Action("run", SYSTEM_LABEL["run"], text, _sorted(numbers))
         for text, numbers in caveated.items()
@@ -219,7 +241,7 @@ def would_change(result: CaseResult) -> str:
     if result.disposition == REVIEW:
         rules = result.decision.keeping_rules or ("unexplained",)
         return "; ".join(KEEP_WOULD_CHANGE.get(rule, rule) for rule in rules)
-    found = [CAVEAT_WOULD_CHANGE[c.code] for c in result.caveats]
+    found = [_caveat_would_change(c.code, result) for c in result.caveats]
     return "; ".join(dict.fromkeys(found)) or (
         "new contact with the flagged address that no rule explains"
     )

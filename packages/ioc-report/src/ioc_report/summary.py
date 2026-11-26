@@ -217,8 +217,13 @@ def coverage_items(
             CoverageItem(
                 "Live re-query",
                 f"every match day re-queried for {counts['fully']} of {len(results)} case(s), "
-                f"some for {counts['partly']}, none for {counts['none']}. The source keeps minute "
-                "detail about 15 days: run a feed the day it arrives.",
+                f"some for {counts['partly']}, none for {counts['none']}."
+                + (
+                    f" The source keeps minute detail about {live.retention_days} days: run a "
+                    "feed the day it arrives."
+                    if live.retention_days is not None
+                    else ""
+                ),
             )
         )
     elif live.status == "skipped":

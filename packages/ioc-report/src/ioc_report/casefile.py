@@ -26,7 +26,7 @@ from ioc_report.knowledge import (
     other_list_background,
     service_for,
 )
-from ioc_report.live import ContextRow, LiveContext
+from ioc_report.live import ContextRow, LiveContext, after_days, after_rows
 from ioc_report.rules import (
     ESTABLISHED_MIN_ADDRESSES,
     ESTABLISHED_MIN_DAYS,
@@ -891,8 +891,7 @@ def after_contact(
     if live.destinations is None:
         return None
     case = evidence.case
-    rows = live.destinations.get(case.source_host, ())
-    return after_view(case, rows, live.destination_days, history.names)
+    return after_view(case, after_rows(live, case), after_days(live, case), history.names)
 
 
 def _after(evidence: Evidence, live: LiveContext, history: HistoryContext) -> list[str]:
@@ -1050,7 +1049,7 @@ def _coverage(
         if expired:
             lines.append(
                 f"[Live source] minute detail for match day(s) {_day_list(expired)} has expired: "
-                "the source keeps about 15 days."
+                f"the source keeps about {live.retention_days} days."
             )
         queried = [day for day in live.days_queried if day in case.days or day == live.latest_day]
         seen = {

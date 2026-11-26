@@ -77,14 +77,16 @@ against a mislabelled family: the schedule shapes are rare (§10, §13), so it c
 | 3 | Retained history and published stream; registration dates over RDAP when `NAME_LOOKUP=rdap` | `history.py`, `registration.py` |
 | 4 | Build contacts and timing, then decide every case | `contact.py`, `rules.py` |
 | 5 | Live source, phase 2, review cases only: the host's other traffic around the contact | `live.py` |
-| 6 | Live source, phase 3, review cases only: every destination the host exchanged traffic with on each day inside the minute horizon, one query per day; then the retained use of every name phases 2 and 3 show | `live.py`, `history.py` |
+| 6 | Live source, phase 3, review cases only: every destination the host exchanged traffic with on each day of its after-contact span, one query per day; then the retained use of every name phases 2 and 3 show | `live.py`, `history.py` |
 | 7 | Every case: the case file (the blind verdict's input), and a digest that groups its facts and reasons. Review cases also get next steps. With `--shadow`, a blind verdict per case | `casefile.py`, `digest.py`, `after.py`, `shadow.py` |
 | 8 | The writer, a local model, turns each digest into the case's overview, then writes a paragraph per group of like cases and the executive summary. Every reply is checked, and cached by its exact request | `narrative.py`, `summary.py` |
 | 9 | Write the HTML page, the Markdown copy and the JSON, with the actions and the checks behind every verdict | `outline.py`, `report.py`, `html_report.py` |
 | 10 | With `--case-reports`, a short PDF for each review case, written by Haiku from that JSON. Off by default. `ioc-case-report` does the same step on its own, for any case in a finished run | `case_report.py`, `case_report.typ` |
 
 Minute detail is queried for as long as the source holds it. A Zeek-loaded source keeps every
-loaded day. With `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` set, as the original probe's fifteen days
+loaded day: the live phases stop at its last loaded day, never reading or calling silent a day it
+never loaded, and each review case's after-contact span runs from the day before its first match to
+13 days later. With `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` set, as the original probe's fifteen days
 (§1), only the last N − 2 days are queried, and an older match day is labelled expired, never
 "no traffic". History before the first match is clipped to the
 retained days, and the case file states how many there were.

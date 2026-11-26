@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from network_behaviour.config import SourceConfig
 
 from ioc_report.feed import Case, load_feed
-from ioc_report.live import LiveSession, minute_horizon
+from ioc_report.live import LiveSession, after_days, after_rows, minute_horizon
 from tests.conftest import minute_row, record, write_feed
 from tests.source_builders import activity, long_flow, write_source
 
@@ -86,7 +86,10 @@ def test_a_source_that_keeps_every_day_lets_an_old_match_be_read(tmp_path: Path)
 
 def test_an_old_match_reads_the_original_span_of_destination_days(tmp_path: Path) -> None:
     old = _cases(tmp_path, "2026-08-01 10:00:00")
-    write_source(tmp_path / "source.duckdb", [activity("2026-08-01 10:00:00")])
+    write_source(
+        tmp_path / "source.duckdb",
+        [activity("2026-08-01 10:00:00"), activity("2026-08-30 10:00:00", root="example.org")],
+    )
 
     session = LiveSession.connect(SourceConfig(tmp_path / "source.duckdb"))
     with session:
@@ -94,3 +97,77 @@ def test_an_old_match_reads_the_original_span_of_destination_days(tmp_path: Path
 
     assert live.destination_days[0] == date(2026, 7, 31)
     assert len(live.destination_days) == 14
+
+
+def test_cases_weeks_apart_each_read_the_days_after_their_own_contact(tmp_path: Path) -> None:
+    review = load_feed(
+        write_feed(
+            tmp_path,
+            [
+                record([minute_row(time, host=HOST)], host=HOST, indicator=indicator)
+                for time, indicator in (
+                    ("2026-08-01 10:00:00", "one.example.com"),
+                    ("2026-08-21 10:00:00", "two.example.com"),
+                )
+            ],
+        )
+    ).cases
+    early, late = sorted(review, key=lambda case: case.first)
+    write_source(
+        tmp_path / "source.duckdb",
+        [
+            activity("2026-08-01 10:00:00"),
+            activity("2026-08-03 10:00:00", root="example.org"),
+            activity("2026-08-21 10:00:00"),
+            activity("2026-08-24 10:00:00", root="example.net"),
+            activity("2026-09-30 10:00:00", root="example.org"),
+        ],
+    )
+
+    session = LiveSession.connect(SourceConfig(tmp_path / "source.duckdb"))
+    with session:
+        live = session.add_destinations(session.gather(review, NOW), review)
+
+    assert live.retention_days is None
+    for case, contact, seen in (
+        (early, date(2026, 8, 1), date(2026, 8, 3)),
+        (late, date(2026, 8, 21), date(2026, 8, 24)),
+    ):
+        days = after_days(live, case)
+        assert days[0] == contact - timedelta(days=1) and len(days) == 14
+        assert seen in {row.day for row in after_rows(live, case)}
+        assert all(days[0] <= row.day <= days[-1] for row in after_rows(live, case))
+    # The days between the two spans are not read.
+    assert date(2026, 8, 16) not in live.destination_days
+
+
+def test_a_source_that_ends_before_the_wall_clock_is_read_only_to_its_last_day(
+    tmp_path: Path,
+) -> None:
+    cases = _cases(tmp_path, "2026-08-01 10:00:00")
+    write_source(
+        tmp_path / "source.duckdb",
+        [activity("2026-08-01 10:00:00"), activity("2026-08-02 23:59:00", root="example.org")],
+    )
+
+    session = LiveSession.connect(SourceConfig(tmp_path / "source.duckdb"))
+    with session:
+        live = session.add_destinations(session.gather(cases, NOW), cases)
+
+    assert live.status == "queried", live.error
+    assert live.latest_day == date(2026, 8, 2)
+    assert live.days_queried == (date(2026, 8, 1), date(2026, 8, 2))
+    assert live.destination_days == (date(2026, 7, 31), date(2026, 8, 1), date(2026, 8, 2))
+    assert any(audit.query_name == "ioc_source_extent" for audit in live.audits)
+
+
+def test_an_empty_source_keeps_the_wall_clock_day(tmp_path: Path) -> None:
+    cases = _cases(tmp_path, "2026-10-05 10:00:00")
+    write_source(tmp_path / "source.duckdb", [])
+
+    session = LiveSession.connect(SourceConfig(tmp_path / "source.duckdb"))
+    with session:
+        live = session.gather(cases, NOW)
+
+    assert live.status == "queried", live.error
+    assert live.latest_day == date(2026, 10, 6)

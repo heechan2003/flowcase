@@ -23,7 +23,7 @@ from network_behaviour.normalization.service import normalize_asn
 from ioc_report.feed import HELD_OPEN_SECONDS, TRANSPORTS, Case, Feed
 from ioc_report.history import CaseHistory, HostServiceDay
 from ioc_report.knowledge import ECH_OUTER_NAMES, SHARED_NETWORKS, SharedNetwork, clean
-from ioc_report.live import AddressDay, LiveContext
+from ioc_report.live import DEFAULT_RETENTION_DAYS, AddressDay, LiveContext
 from ioc_report.registration import NameAge
 
 # CASE_STUDY §10, measured on (client_ip, server_ip) minute buckets: among pairs with 12-400
@@ -202,6 +202,8 @@ class Evidence:
     """Index in `flows` → indexes in `contacts` it overlaps."""
     live_days: tuple[date, ...] = ()
     """Days the live source was re-queried for minute contact."""
+    live_retention_days: int | None = DEFAULT_RETENTION_DAYS
+    """Days of minute detail the live source keeps; None when it keeps every loaded day."""
     registrations: Mapping[str, NameAge] | None = None
     """Registration dates by registered domain (RDAP). None when the run did not look them up."""
     contact_duplicates: Mapping[int, int] = field(default_factory=dict)
@@ -292,6 +294,7 @@ def build_evidence(
         live_status=live.status,
         flow_attribution=attribution,
         live_days=live.days_queried,
+        live_retention_days=live.retention_days,
         registrations=registrations,
         contact_duplicates=_duplicate_contacts(contacts, minute_days),
         flow_duplicates=flow_duplicates,

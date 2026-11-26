@@ -19,7 +19,7 @@ from ioc_report.contact import Contact, Evidence, FlowContact
 from ioc_report.facts import story
 from ioc_report.history import HistoryContext, ServingAddress
 from ioc_report.knowledge import other_list_background
-from ioc_report.live import LiveContext
+from ioc_report.live import LiveContext, after_days, after_rows
 from ioc_report.rules import (
     ECH_HIDDEN,
     EXPLAINED,
@@ -315,9 +315,10 @@ def _host(evidence: Evidence, live: LiveContext) -> list[Line]:
 
 def _habitual(evidence: Evidence, live: LiveContext) -> Line | None:
     """The names the address used on the most days phase 3 read: review cases only."""
-    if live.destinations is None or not live.destination_days:
+    read = after_days(live, evidence.case)
+    if live.destinations is None or not read:
         return None
-    rows = live.destinations.get(evidence.case.source_host, ())
+    rows = after_rows(live, evidence.case)
     days: dict[str, set[object]] = defaultdict(set)
     for row in rows:
         if row.root_domain:
@@ -328,7 +329,7 @@ def _habitual(evidence: Evidence, live: LiveContext) -> Line | None:
     listed = ", ".join(f"{name} ({len(seen)})" for name, seen in ranked)
     return Line(
         "Live source",
-        f"names it used on the most of the {len(live.destination_days)} day(s) read, with the "
+        f"names it used on the most of the {len(read)} day(s) read, with the "
         f"number of days: {listed}.",
     )
 
