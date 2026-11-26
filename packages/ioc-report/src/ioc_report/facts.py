@@ -23,7 +23,7 @@ from ioc_report.casefile import (
     rank_context,
     source_label,
 )
-from ioc_report.contact import Contact, Evidence, FlowContact
+from ioc_report.contact import Contact, Evidence, FlowContact, by_label
 from ioc_report.history import HistoryContext, indicator_service
 from ioc_report.knowledge import name_facts
 from ioc_report.live import (
@@ -164,7 +164,8 @@ def _contact(evidence: Evidence) -> list[Fact]:
     days = day_list(m.date() for m in minutes)
     received = sum(contact.down_bytes for contact in contacts)
     sent = sum(contact.up_bytes for contact in contacts)
-    what = contacts[0].label if len(contacts) == 1 else f"{len(contacts)} kinds of contact"
+    kinds = by_label(contacts)
+    what = next(iter(kinds)) if len(kinds) == 1 else f"{len(kinds)} kinds of contact"
     facts = [
         Fact(
             source,

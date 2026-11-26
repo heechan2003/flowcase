@@ -272,7 +272,9 @@ def test_the_brief_keeps_the_facts_the_lead_needs(
     assert "payload_delivery" not in found.text() and "payload delivery" in found.text()
     # The brief keeps UTC alone, whatever zone the run showed beside it.
     assert "Tokyo" not in found.text() and "03:06 UTC" in found.text()
-    assert "kind(s) of contact" not in found.text() and "1 distinct connection(s)" in found.text()
+    assert "kind(s) of contact" not in found.text() and (
+        "1 address, port and name combination(s)" in found.text()
+    )
     assert any("named the flagged domain" in line for line in found.outcome)
     assert found.outcome[0].startswith("Outcome: review.")
     assert found.next_steps[0].startswith("Identify the device")

@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from ioc_report.after import UPLOAD_BYTES
 from ioc_report.casefile import after_contact, caveats
-from ioc_report.contact import Contact, Evidence, FlowContact
+from ioc_report.contact import Contact, Evidence, FlowContact, by_label
 from ioc_report.facts import story
 from ioc_report.history import HistoryContext, ServingAddress
 from ioc_report.knowledge import other_list_background
@@ -390,13 +390,15 @@ def _kinds(evidence: Evidence) -> list[Line]:
         for index, contact in enumerate(evidence.contacts)
         if not evidence.hidden_contact(index)
     ]
-    if len(shown) < 2:
+    grouped = by_label(shown)
+    if len(grouped) < 2:
         return []
     kinds = [
-        f"{contact.label}, {len(contact.minutes)} minute(s), {size(contact.down_bytes)} received"
-        for contact in shown[:LISTED]
+        f"{label}, {len({m for contact in group for m in contact.minutes})} minute(s), "
+        f"{size(sum(contact.down_bytes for contact in group))} received"
+        for label, group in list(grouped.items())[:LISTED]
     ]
-    more = len(shown) - LISTED
+    more = len(grouped) - LISTED
     return [
         Line(
             "IOC feed and live source",
@@ -463,8 +465,11 @@ def _kept(evidence: Evidence, findings: Sequence[Finding]) -> list[str]:
                 }
             )
             visit = found[0].text.partition("; ")[2]
+            # One finding per contact, and its text names the contact's label: identical texts
+            # are one kind of contact seen on several days.
+            kinds = len(dict.fromkeys(finding.text for finding in found))
             lines.append(
-                f"K1: the host's traffic named the flagged domain on {len(found)} kind(s) of "
+                f"K1: the host's traffic named the flagged domain on {kinds} kind(s) of "
                 f"contact ({_listed(names)}); {visit}."
             )
         elif len(found) == 1:

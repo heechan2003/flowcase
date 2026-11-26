@@ -92,6 +92,15 @@ class Contact:
         return f"{self.server_ip} {self.port}/{transport}, {name}"
 
 
+def by_label(contacts: Sequence[Contact]) -> dict[str, list[Contact]]:
+    """Contacts grouped into kinds, in first-seen order. The live source gives a contact per day,
+    so one address, port and name across three days is one kind, not three."""
+    kinds: dict[str, list[Contact]] = defaultdict(list)
+    for contact in contacts:
+        kinds[contact.label].append(contact)
+    return dict(kinds)
+
+
 @dataclass(frozen=True, slots=True)
 class FlowContact:
     source: str
