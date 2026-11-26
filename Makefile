@@ -1,12 +1,12 @@
 # Run from the repository root. `make sync` once, then `make check` before every commit.
 VENV := $(CURDIR)/.venv/bin
 
-.PHONY: sync check check-triage check-ioc-report check-scripts demo zeek-fixture
+.PHONY: sync check check-triage check-ioc-report check-scripts check-leaks demo zeek-fixture
 
 sync:
 	uv sync --all-packages --all-extras
 
-check: check-triage check-ioc-report check-scripts
+check: check-triage check-ioc-report check-scripts check-leaks
 
 check-triage:
 	cd packages/triage && $(VENV)/ruff format --check . && $(VENV)/ruff check . && $(VENV)/mypy \
@@ -19,9 +19,14 @@ check-ioc-report:
 	cd packages/ioc-report && $(VENV)/ruff format --check . && $(VENV)/ruff check . && $(VENV)/mypy \
 		&& $(VENV)/pytest -q
 
-# The demo and fixture scripts, with the root pyproject's settings.
+# The demo, fixture and repository scripts, with the root pyproject's settings.
 check-scripts:
-	$(VENV)/ruff format --check demo fixtures && $(VENV)/ruff check demo fixtures && $(VENV)/mypy
+	$(VENV)/ruff format --check demo fixtures scripts && $(VENV)/ruff check demo fixtures scripts \
+		&& $(VENV)/mypy
+
+# No routable address and no data file outside fixtures/zeek-real (scripts/check_leaks.py).
+check-leaks:
+	$(VENV)/python scripts/check_leaks.py
 
 # The whole pipeline on the synthetic network, checked against demo/expected.json (about 10 minutes).
 demo:
