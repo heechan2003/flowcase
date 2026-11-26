@@ -18,6 +18,10 @@ few one-off visits to long-tail sites each day make novelty ordinary.
 own host and its own flagged address, after at least 31 days of history (`confidence.day_edges`
 reaches 30). `demo/expected.json` holds what code must decide for each one.
 
+**The small world** (`--hosts-per-profile N`, `make demo-small`) keeps the first N hosts of each
+profile plus every scenario host. Each host's traffic is seeded by its address and the day alone, so
+the small world is an exact subset of the full one, and the planted cases are the same traffic.
+
 Run: `python demo/generate.py --out demo/work` (see `--help`).
 """
 
@@ -41,6 +45,8 @@ SEED = 20261125
 DAYS = 35
 SCENARIO_DAYS = 3
 DAY_SECONDS = 86_400
+MIN_COHORT = 40
+"""`bands.min_cohort` in triage's parameters: a peer band with fewer hosts is not compared."""
 
 RESOLVERS = ("192.0.2.53", "192.0.2.54")
 PUSH = ("198.18.0.10", "push.notify-hub.test")
@@ -732,14 +738,25 @@ def _planted(logs: DayLogs, day: date, scenario_day: int, hosts: dict[str, Host]
     )
 
 
-def generate_day(args: tuple[Path, date, int, int]) -> tuple[str, int]:
-    out, day, index, days = args
+def select_hosts(per_profile: int | None) -> list[Host]:
+    """Every host, or the first `per_profile` of each profile plus every scenario host."""
+    if per_profile is None:
+        return HOSTS
+    planted = {s.host for s in SCENARIOS}
+    return [
+        h for h in HOSTS if int(h.address.rsplit(".", 1)[1]) <= per_profile or h.address in planted
+    ]
+
+
+def generate_day(args: tuple[Path, date, int, int, int | None]) -> tuple[str, int]:
+    out, day, index, days, per_profile = args
     logs = DayLogs(day)
     last_background = days - SCENARIO_DAYS - 1
-    for host in HOSTS:
+    hosts = select_hosts(per_profile)
+    for host in hosts:
         _routine(logs, host, day, index, last_background)
     if index > last_background:
-        _planted(logs, day, index - last_background - 1, {h.address: h for h in HOSTS})
+        _planted(logs, day, index - last_background - 1, {h.address: h for h in hosts})
     folder = out / day.isoformat()
     folder.mkdir(parents=True, exist_ok=True)
     for kind, lines in (("conn", logs.conn), ("ssl", logs.ssl), ("dns", logs.dns)):
@@ -838,7 +855,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--end", type=date.fromisoformat, help="last day (default: yesterday, UTC)")
     parser.add_argument("--days", type=int, default=DAYS)
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument(
+        "--hosts-per-profile",
+        type=int,
+        help="the small world: the first N hosts of each profile plus the scenario hosts",
+    )
     args = parser.parse_args(argv)
+    if args.hosts_per_profile is not None and args.hosts_per_profile < MIN_COHORT:
+        parser.error(f"--hosts-per-profile must keep every peer band at {MIN_COHORT} hosts or more")
     if args.days < SCENARIO_DAYS + 31:
         parser.error(
             f"--days must leave 31 days of history before the {SCENARIO_DAYS} scenario days"
@@ -848,7 +872,9 @@ def main(argv: list[str] | None = None) -> int:
     days = list(all_days(end, args.days))
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
-    jobs = [(out / "logs", day, index, len(days)) for index, day in enumerate(days)]
+    per_profile = args.hosts_per_profile
+    hosts = select_hosts(per_profile)
+    jobs = [(out / "logs", day, index, len(days), per_profile) for index, day in enumerate(days)]
     total = 0
     with ProcessPoolExecutor(max_workers=args.jobs) as pool:
         for name, count in pool.map(generate_day, jobs):
@@ -863,7 +889,8 @@ def main(argv: list[str] | None = None) -> int:
                 "seed": SEED,
                 "start": days[0].isoformat(),
                 "end": end.isoformat(),
-                "hosts": len(HOSTS),
+                "hosts": len(hosts),
+                "hosts_per_profile": per_profile,
                 "scenario_days": [d.isoformat() for d in scenario_days(end)],
                 "connections": total,
             },
@@ -872,7 +899,7 @@ def main(argv: list[str] | None = None) -> int:
         + "\n",
         encoding="utf-8",
     )
-    print(f"generated {len(days)} days, {len(HOSTS)} hosts, {total:,} connections in {out}")
+    print(f"generated {len(days)} days, {len(hosts)} hosts, {total:,} connections in {out}")
     return 0
 
 

@@ -5,6 +5,7 @@
 data/
 output/
 demo/work/
+demo/work-small/
 # Evidence bundles measure real days; the case study reports their counts instead.
 packages/triage/docs/evaluations/
 *.duckdb

@@ -9,8 +9,26 @@ make demo        # about 10 minutes; everything it writes goes to demo/work/ (gi
 
 `demo/run.py --from STEP` resumes at a step (`generate`, `load`, `triage`, `match`, `report`, `check`)
 over the files an earlier run left, and `--sample` refreshes `sample-output/` after a passing check. On
-an 8-core laptop: generate under 30 s (2.15 M connections), load 1-2 min, triage 8-11 min (35 days,
+an 8-core laptop: generate under 30 s (2.15 M connections), load 1-2 min, triage 7-11 min (35 days,
 slower as history grows), match and report a few seconds.
+
+### The small world
+
+```shell
+make demo-small  # the same planted cases on 230 hosts instead of 400; writes demo/work-small/
+```
+
+It keeps the first 45 hosts of each profile plus every scenario host (`--hosts-per-profile`). Each
+host's traffic is seeded by its address and the day alone, so the small world is an exact subset of
+the full one: the planted cases are the same traffic, checked against the same `expected.json` with
+one allowance (below). Every peer band still has at least 40 hosts. CI runs it on every push (`.github/workflows/ci.yml`, job
+`demo-small`). On the same laptop it took 5 minutes on 2026-11-26 (1.37 M connections; load 45 s, triage
+4 min) against 9 for the full world.
+
+Fewer peers move peer percentiles, so a rule that rests on one near the tail can come out either way.
+`expected.json` lists those under `_small_world_optional`: today only the tunnel visitor's K3, whose
+relationship episode scored 98.48 in the full world against the 97.5 tail. The small world still
+requires that case's disposition and its other rules.
 
 ## What runs
 

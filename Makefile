@@ -1,7 +1,7 @@
 # Run from the repository root. `make sync` once, then `make check` before every commit.
 VENV := $(CURDIR)/.venv/bin
 
-.PHONY: sync check check-triage check-ioc-report check-scripts check-leaks demo zeek-fixture
+.PHONY: sync check check-triage check-ioc-report check-scripts check-leaks demo demo-small zeek-fixture
 
 sync:
 	uv sync --all-packages --all-extras
@@ -31,6 +31,11 @@ check-leaks:
 # The whole pipeline on the synthetic network, checked against demo/expected.json (about 10 minutes).
 demo:
 	$(VENV)/python demo/run.py
+
+# The same planted cases on fewer background hosts (CI's smoke run).
+DEMO_SMALL_HOSTS := 45
+demo-small:
+	$(VENV)/python demo/run.py --work demo/work-small --hosts-per-profile $(DEMO_SMALL_HOSTS)
 
 # Rebuild fixtures/zeek-real: the capture (scapy) and the logs real Zeek writes from it (Docker).
 # Zeek counts the documentation ranges as private address space, and private space as local, so the

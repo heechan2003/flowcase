@@ -8,7 +8,7 @@ members = ["packages/triage", "packages/ioc-report"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["packages", "demo/work"]
+extend-exclude = ["packages", "demo/work", "demo/work-small"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -17,7 +17,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 python_version = "3.12"
 strict = true
 files = ["demo", "fixtures", "scripts"]
-exclude = ["demo/work/"]
+exclude = ["demo/work/", "demo/work-small/"]
 
 # scapy is only installed by `make zeek-fixture` (inline script metadata), never in the workspace.
 [[tool.mypy.overrides]]
