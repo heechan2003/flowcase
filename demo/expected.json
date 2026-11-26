@@ -5,7 +5,7 @@
     "Revised after the first run, for K3 only: K3 holds when the published triage stream has an episode on the flagged destination itself. Triage hashes an unnamed contact on a routed address under its ASN, so the beacon's episodes cannot count (no K3). Triage's relationship family raises an episode on a new rare name (the tunnel visitor's bore.pub, the lure domain), and its persistence family raises one every day on a rare name a host uses daily (the tunnel client's bore.pub), so those cases also carry K3. The tunnel client's contacts are still explained by E5."
   ],
   "_small_world_optional": {
-    "_note": "Rules the small world (--hosts-per-profile) may or may not raise; the full world requires them. The tunnel visitor's K3 rests on a relationship episode whose strength is a peer percentile: 98.48 among 120 office hosts on 2026-11-26, just past the 97.5 tail, and below it among the small world's 48. Its disposition, K1 and K2 are still required.",
+    "_note": "Rules the small world (--hosts-per-profile) may or may not raise; the full world requires them. The tunnel visitor's K3 rests on a relationship episode whose strength is a peer percentile: 98.48 among 120 office hosts on 2026-11-23 (the world ending 2026-11-24), just past the 97.5 tail, and below it among the small world's 48. Its disposition, K1 and K2 are still required.",
     "tunnel-visitor": ["K3"]
   },
   "cdn-edge": {"disposition": "explained", "rules": ["E4"], "explained_by": ["E4"]},

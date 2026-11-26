@@ -44,19 +44,21 @@ requires that case's disposition and its other rules.
 No model runs and nothing leaves the machine. Every page holds code's own text. The RDAP cache holds
 the registration dates of the synthetic names, and its bootstrap sends every other lookup to a closed
 loopback port, so a real name (bore.pub) is reported as a failed lookup with an unknown age, which
-changes no decision.
+changes no decision. `run.py` stamps the cache afresh before the match and report steps, so its
+bootstrap never expires into a real lookup, however long after the first run a `--from` run comes.
 
 ## The world
 
-`generate.py` is seeded, and a given seed and end day give the same bytes. The end day defaults to the
-latest day the publisher may process (day D runs no earlier than D+1 08:00 UTC).
+`generate.py` is seeded, and a given seed and end day give the same bytes. The end day is fixed at
+2026-11-24 (`DEMO_END`), so every run builds the same world and code decides the same, whatever day it
+runs; `--end` moves it.
 
 - **Hosts:** 400 local hosts in `10.30.0.0/16`, in five profiles: office (120), lab (80), student (100),
   device (50) and server (50). Each profile sits inside one peer band of bytes and destinations, so every
   occupied band has at least 40 hosts (`bands.min_cohort`).
 - **Servers:** documentation ranges and `198.18.0.0/15`, under `.test` names, on synthetic networks with
-  private-use AS numbers. The pipeline counts these as public only with `NETWORK_BEHAVIOUR_SYNTHETIC=1`,
-  which every step sets. Three public names stay because the rules know them: `bore.pub` (a tunnelling
+  documentation AS numbers (RFC 5398) and one private-use number (64512). The pipeline counts these as
+  public only with `NETWORK_BEHAVIOUR_SYNTHETIC=1`, which every step sets. Three public names stay because the rules know them: `bore.pub` (a tunnelling
   service), `cloudflare-ech.com` (the ECH outer name), and AS13335, which labels one documentation block
   as a network that shares its addresses by design.
 - **Every minute:** each host holds a push connection open all day, so every day has activity in all
