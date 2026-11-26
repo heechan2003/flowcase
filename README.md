@@ -13,7 +13,7 @@ synthetic dataset, so it runs anywhere and holds no data from that network.
 | `packages/ioc-report` | `ioc-report`: decides every IOC match in code (`review` or `explained`), then has a model write the case up. Code checks every reply, and its own text stands when a reply fails |
 | `docs/` | Case study, architecture and source contract (coming) |
 | `demo/` | A synthetic Zeek network with planted cases, and `make demo`, which runs everything and checks each case |
-| `fixtures/zeek-real/` | Real Zeek output for a compatibility test (coming) |
+| `fixtures/zeek-real/` | A synthetic capture and the logs real Zeek wrote from it, for a compatibility test |
 
 ## Develop
 

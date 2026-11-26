@@ -1,0 +1,17 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	conn
+#open	2026-11-26-03-54-40
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	service	duration	orig_bytes	resp_bytes	conn_state	local_orig	local_resp	missed_bytes	history	orig_pkts	orig_ip_bytes	resp_pkts	resp_ip_bytes	tunnel_parents	ip_proto
+#types	time	string	addr	port	addr	port	enum	string	interval	count	count	string	bool	bool	count	string	count	count	count	count	set[string]	count
+1772452801.000000	CRdT6w4PA64qWKmBk3	10.1.0.10	50001	203.0.113.10	443	tcp	ssl	1.010000	78	47	SF	T	F	0	ShADadFf	6	318	4	207	-	6
+1772452800.000000	CJKFoj4bpHEhTeaRoj	10.1.0.10	53001	198.51.100.53	53	udp	dns	0.020000	31	60	SF	T	F	0	Dd	1	59	1	88	-	17
+1772452811.000000	CJioLj2aEkGc9R3T0b	10.1.0.10	50002	203.0.113.30	80	tcp	http	1.010000	72	986	SF	T	F	0	ShADadFf	6	312	4	1146	-	6
+1772452810.000000	Cj5C653qaTXsxKtqD2	10.1.0.10	53002	198.51.100.53	53	udp	dns	0.020000	33	64	SF	T	F	0	Dd	1	61	1	92	-	17
+1772452820.000000	CcvuMe3KIDgdxGsNCd	192.0.2.25	51515	10.1.0.20	22	tcp	-	1.010000	17	21	SF	F	T	0	ShAdDaFf	6	257	4	181	-	6
+1772452840.000000	CpuDPN1X7c0rKhM3Ik	10.1.0.30	50100	203.0.113.40	8443	tcp	-	90.210000	1200000	0	SF	T	F	0	ShADaFf	1004	1240160	102	4080	-	6
+1772452980.000000	CRmE1y3QIW6Zmd10g1	10.1.0.10	53003	198.51.100.53	53	udp	dns	-	-	-	S0	T	F	0	D	1	60	0	0	-	17
+1772453040.000000	CIrGew2SfruONAsgA8	10.1.0.20	53004	198.51.100.53	53	udp	dns	-	-	-	SHR	T	F	0	^d	0	0	1	88	-	17
+#close	2026-11-26-03-54-40

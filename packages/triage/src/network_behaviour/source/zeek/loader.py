@@ -23,9 +23,11 @@ The rules, each with a test in `tests/unit/source/zeek/`:
   sum of the average upload rates of the connections active in it, and the bucket keeps the p95 of
   its minutes. Detectors read it only against history and peers.
 - **Long flows** are connections starting in the day that moved `LONG_FLOW_MIN_BYTES` or more.
-- **DNS pairs** are hourly per (client, resolver). A transaction with an `rtt` is complete, one
-  without is unanswered; packets come from the transaction's conn.log row, service time from `rtt`,
-  and unsolicited replies from weird.log's `dns_unmatched_reply`.
+- **DNS pairs** are hourly per (client, resolver). A transaction with an `rtt` is complete. One
+  without an `rtt` is unanswered when it has no `rcode` (no reply was seen) and an unsolicited reply
+  when it has one: Zeek 9 logs a reply it cannot match to a query that way. Packets come from the
+  transaction's conn.log row, service time from `rtt`. Older Zeek versions flagged such replies in
+  weird.log as `dns_unmatched_reply`; those count too, once.
 """
 
 from __future__ import annotations
@@ -70,18 +72,29 @@ class LoadReport:
     dns_rows: int
     long_flow_rows: int
     named_connections: int
+    by_local_nets: bool = False
 
     def render(self) -> str:
-        return "\n".join(
-            (
-                f"day: {self.day}",
-                f"log files: {self.files}",
-                f"connections in the day: {self.connections} "
-                f"({self.dropped_connections} dropped: both or neither side local)",
-                f"connections with a name: {self.named_connections}",
-                f"rows written: activity_1m {self.activity_rows}, host_load_5m {self.rate_rows}, "
-                f"dns_pairs {self.dns_rows}, long_flows {self.long_flow_rows}",
-            )
+        lines = [
+            f"day: {self.day}",
+            f"log files: {self.files}",
+            f"connections in the day: {self.connections} "
+            f"({self.dropped_connections} dropped: both or neither side local)",
+            f"connections with a name: {self.named_connections}",
+            f"rows written: activity_1m {self.activity_rows}, host_load_5m {self.rate_rows}, "
+            f"dns_pairs {self.dns_rows}, long_flows {self.long_flow_rows}",
+        ]
+        if self.connections and self.dropped_connections == self.connections:
+            lines.append(f"warning: {self.locality_hint()}")
+        return "\n".join(lines)
+
+    def locality_hint(self) -> str:
+        if self.by_local_nets:
+            return "no connection had exactly one side inside the local networks given"
+        return (
+            "no connection had exactly one side local by Zeek's local_orig/local_resp. Zeek "
+            "counts private and documentation ranges as local unless "
+            "Site::private_address_space_is_local is F; give the local networks instead"
         )
 
 
@@ -157,6 +170,7 @@ def load_day(
         connections=connections,
         dropped_connections=dropped,
         named_connections=named,
+        by_local_nets=bool(local_nets),
         **counts,
     )
 
@@ -446,10 +460,13 @@ def _write_dns(
         f"""
         CREATE OR REPLACE TEMP TABLE dns_transactions AS
         SELECT uid, ts, rtt, orig_pkts, resp_pkts,
+               CASE WHEN rtt IS NOT NULL THEN 'complete'
+                    WHEN rcode IS NULL THEN 'unanswered'
+                    ELSE 'unsolicited' END AS outcome,
                CASE WHEN lo THEN orig_h ELSE resp_h END AS client_ip,
                CASE WHEN lo THEN resp_h ELSE orig_h END AS server_ip
         FROM (
-            SELECT d.uid, d.ts, d.rtt, d.orig_h, d.resp_h, c.orig_pkts, c.resp_pkts,
+            SELECT d.uid, d.ts, d.rtt, d.rcode, d.orig_h, d.resp_h, c.orig_pkts, c.resp_pkts,
                    {dns_lo} AS lo, {dns_lr} AS lr
             FROM zeek_dns AS d
             LEFT JOIN {_CONN_FLAGS} AS c USING (uid)
@@ -472,6 +489,11 @@ def _write_dns(
             LEFT JOIN {_CONN_FLAGS} AS c USING (uid)
             WHERE w.name = 'dns_unmatched_reply' AND w.ts >= {start} AND w.ts < {end}
               AND w.orig_h IS NOT NULL AND w.resp_h IS NOT NULL
+              -- The same reply already counted from dns.log is not counted twice.
+              AND NOT EXISTS (
+                  SELECT 1 FROM dns_transactions AS t
+                  WHERE t.uid = w.uid AND t.outcome = 'unsolicited'
+              )
         )
         WHERE lo <> lr
         GROUP BY ALL
@@ -482,26 +504,32 @@ def _write_dns(
         INSERT INTO flow.dns_pairs
         WITH per_uid AS (
             SELECT uid, client_ip, server_ip, CAST(floor(min(ts) / 3600) AS BIGINT) AS hour,
-                   count(*) FILTER (WHERE rtt IS NOT NULL) AS complete,
-                   count(*) FILTER (WHERE rtt IS NULL) AS unanswered,
-                   sum(rtt) FILTER (WHERE rtt IS NOT NULL) AS rtt_sum,
-                   coalesce(any_value(orig_pkts), count(*)) AS query_pkts,
-                   coalesce(any_value(resp_pkts), count(*) FILTER (WHERE rtt IS NOT NULL))
-                       AS response_pkts
+                   count(*) FILTER (WHERE outcome = 'complete') AS complete,
+                   count(*) FILTER (WHERE outcome = 'unanswered') AS unanswered,
+                   count(*) FILTER (WHERE outcome = 'unsolicited') AS unsolicited,
+                   sum(rtt) FILTER (WHERE outcome = 'complete') AS rtt_sum,
+                   coalesce(any_value(orig_pkts), count(*) FILTER (WHERE outcome <> 'unsolicited'))
+                       AS query_pkts,
+                   -- Each unsolicited reply is one packet, counted as unsolicited instead.
+                   greatest(coalesce(any_value(resp_pkts),
+                                     count(*) FILTER (WHERE outcome <> 'unanswered'))
+                            - count(*) FILTER (WHERE outcome = 'unsolicited'), 0) AS response_pkts
             FROM dns_transactions GROUP BY uid, client_ip, server_ip
         ),
         sessions AS (
             SELECT hour, client_ip, server_ip,
                    sum(complete) AS complete, sum(unanswered) AS unanswered,
+                   sum(unsolicited) AS unsolicited,
                    sum(query_pkts) AS query_pkts, sum(response_pkts) AS response_pkts,
                    sum(query_pkts) FILTER (WHERE complete = 0) AS unanswered_pkts,
                    sum(rtt_sum) / nullif(sum(complete), 0) AS mean_rtt
             FROM per_uid GROUP BY ALL
         )
         SELECT to_timestamp(hour * 3600) AS time, client_ip, server_ip,
-               coalesce(s.complete, 0), coalesce(s.unanswered, 0), coalesce(u.replies, 0),
+               coalesce(s.complete, 0), coalesce(s.unanswered, 0),
+               coalesce(s.unsolicited, 0) + coalesce(u.replies, 0),
                coalesce(s.query_pkts, 0), coalesce(s.response_pkts, 0),
-               coalesce(s.unanswered_pkts, 0), coalesce(u.replies, 0),
+               coalesce(s.unanswered_pkts, 0), coalesce(s.unsolicited, 0) + coalesce(u.replies, 0),
                CAST(round(coalesce(s.mean_rtt, 0) * 1e9) AS UBIGINT)
         FROM sessions AS s
         FULL OUTER JOIN dns_unsolicited AS u USING (hour, client_ip, server_ip)
