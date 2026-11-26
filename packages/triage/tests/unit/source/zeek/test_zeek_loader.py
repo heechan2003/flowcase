@@ -81,6 +81,28 @@ def test_zeek_flags_decide_locality_when_no_networks_are_given(
     assert query("SELECT client_ip, server_ip FROM flow.activity_1m") == [("192.168.5.5", SERVER)]
 
 
+def test_a_day_where_every_connection_is_dropped_says_why(tmp_path: Path) -> None:
+    # Zeek's default site config counts private and documentation ranges as local, so on
+    # synthetic data both sides of every connection are flagged local.
+    write_json(
+        tmp_path / "logs",
+        "conn",
+        [conn("both", at("10:00:00"), HOST, SERVER, local_orig=True, local_resp=True)],
+    )
+
+    by_flags = _load(tmp_path, nets=False).render()
+    by_nets = load_day(
+        tmp_path / "other.duckdb",
+        DAY,
+        [tmp_path / "logs"],
+        local_nets=(IPv4Network("10.9.0.0/16"),),
+    ).render()
+
+    assert "Site::private_address_space_is_local" in by_flags
+    assert "inside the local networks given" in by_nets
+    assert "warning" not in _load(tmp_path).render()
+
+
 def test_long_flows_record_who_opened_them(tmp_path: Path, query: Query) -> None:
     big = LONG_FLOW_MIN_BYTES
     write_json(
@@ -322,6 +344,54 @@ def test_dns_pairs_count_sessions_packets_service_time_and_unsolicited_replies(
         "unsolicited_response_packets, mean_service_nanos FROM flow.dns_pairs"
     )
     assert rows == [(_minute("10:00:00"), HOST, resolver, 2, 1, 1, 4, 1, 3, 1, 20_000_000)]
+
+
+def test_a_reply_zeek_could_not_match_is_unsolicited_and_counted_once(
+    tmp_path: Path, query: Query
+) -> None:
+    """Zeek 9 logs a reply without a query as a dns.log row with an `rcode` and no `rtt`, and
+    raises no weird (`tests/integration/source/test_zeek_real.py`). Older versions flagged it in
+    weird.log as `dns_unmatched_reply`; when both are present it counts once."""
+    resolver = "198.51.100.53"
+    logs = tmp_path / "logs"
+    write_json(
+        logs,
+        "conn",
+        [
+            # Zeek flips a lone reply so the client is the originator, with no query packets.
+            conn("r1", at("10:00:00"), HOST, resolver, proto="udp", resp_p=53, service="dns",
+                 orig_pkts=0, resp_pkts=1),
+            conn("q1", at("10:05:00"), HOST, resolver, proto="udp", resp_p=53, service="dns",
+                 orig_pkts=1, resp_pkts=0),
+        ],
+    )  # fmt: skip
+    write_json(
+        logs,
+        "dns",
+        [
+            dns("r1", at("10:00:00"), HOST, resolver, "a.example.test", reply_only=True),
+            dns("q1", at("10:05:00"), HOST, resolver, "b.example.test", rtt=None),
+        ],
+    )
+    write_json(
+        logs,
+        "weird",
+        [
+            {"ts": at("10:00:00"), "uid": "r1", "id.orig_h": HOST, "id.resp_h": resolver,
+             "name": "dns_unmatched_reply"},
+            {"ts": at("10:30:00"), "uid": "w2", "id.orig_h": HOST, "id.resp_h": resolver,
+             "name": "dns_unmatched_reply"},
+        ],
+    )  # fmt: skip
+
+    _load(tmp_path)
+
+    rows = query(
+        "SELECT complete_sessions, unanswered_sessions, unsolicited_sessions, query_packets, "
+        "response_packets, unanswered_query_packets, unsolicited_response_packets "
+        "FROM flow.dns_pairs"
+    )
+    assert rows == [(0, 1, 2, 1, 0, 1, 2)]
 
 
 # --- formats --------------------------------------------------------------------------------------

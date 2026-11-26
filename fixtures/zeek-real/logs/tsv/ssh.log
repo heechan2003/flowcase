@@ -1,0 +1,10 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	ssh
+#open	2026-11-26-03-54-40
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	version	auth_success	auth_attempts	direction	client	server	cipher_alg	mac_alg	compression_alg	kex_alg	host_key_alg	host_key_fingerprint
+#types	time	string	addr	port	addr	port	count	bool	count	enum	string	string	string	string	string	string	string	string
+1772452820.100000	CcvuMe3KIDgdxGsNCd	192.0.2.25	51515	10.1.0.20	22	2	-	0	INBOUND	SSH-2.0-fixture	SSH-2.0-OpenSSH_9.6	-	-	-	-	-	-
+#close	2026-11-26-03-54-40

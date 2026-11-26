@@ -1,0 +1,10 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	files
+#open	2026-11-26-03-54-40
+#fields	ts	fuid	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	source	depth	analyzers	mime_type	filename	duration	local_orig	is_orig	seen_bytes	total_bytes	missing_bytes	overflow_bytes	timedout	parent_fuid	md5	sha1	sha256	extracted	extracted_cutoff	extracted_size
+#types	time	string	string	addr	port	addr	port	string	count	set[string]	string	string	interval	bool	bool	count	count	count	count	bool	string	string	string	string	string	bool	count
+1772452811.200000	FqRY4s2oR5MRycofH1	CJioLj2aEkGc9R3T0b	10.1.0.10	50002	203.0.113.30	80	HTTP	0	(empty)	text/plain	-	0.000000	F	F	920	920	0	0	F	-	-	-	-	-	-	-
+#close	2026-11-26-03-54-40

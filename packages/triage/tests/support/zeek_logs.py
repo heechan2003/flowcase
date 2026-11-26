@@ -70,7 +70,10 @@ def dns(
     ttls: Iterable[float] = (),
     *,
     rtt: float | None = 0.02,
+    reply_only: bool = False,
 ) -> dict[str, Any]:
+    """A dns.log row as Zeek writes it: `rcode` only when a reply was seen, `rtt` only when the
+    reply matched a query. `reply_only` is a reply Zeek saw no query for (rcode, no rtt)."""
     record: dict[str, Any] = {
         "ts": ts,
         "uid": uid,
@@ -82,7 +85,9 @@ def dns(
         "answers": list(answers),
         "TTLs": list(ttls),
     }
-    if rtt is not None:
+    if reply_only:
+        record["rcode"] = 0
+    elif rtt is not None:
         record["rtt"] = rtt
         record["rcode"] = 0
     return record

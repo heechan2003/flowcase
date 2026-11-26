@@ -1,0 +1,13 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	dns
+#open	2026-11-26-03-54-40
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	proto	trans_id	rtt	query	qclass	qclass_name	qtype	qtype_name	rcode	rcode_name	AA	TC	RD	RA	Z	answers	TTLs	rejected	opcode	opcode_name
+#types	time	string	addr	port	addr	port	enum	count	interval	string	count	string	count	string	count	string	bool	bool	bool	bool	count	vector[string]	vector[interval]	bool	count	string
+1772452800.000000	CJKFoj4bpHEhTeaRoj	10.1.0.10	53001	198.51.100.53	53	udp	4097	0.020000	www.shop.test	1	C_INTERNET	1	A	0	NOERROR	F	F	T	T	0	203.0.113.10	300.000000	F	0	query
+1772452810.000000	Cj5C653qaTXsxKtqD2	10.1.0.10	53002	198.51.100.53	53	udp	4098	0.020000	files.shop.test	1	C_INTERNET	1	A	0	NOERROR	F	F	T	T	0	203.0.113.30	300.000000	F	0	query
+1772452980.000000	CRmE1y3QIW6Zmd10g1	10.1.0.10	53003	198.51.100.53	53	udp	4099	-	gone.shop.test	1	C_INTERNET	1	A	-	-	F	F	T	F	0	-	-	F	0	query
+1772453040.000000	CIrGew2SfruONAsgA8	10.1.0.20	53004	198.51.100.53	53	udp	4100	-	www.shop.test	-	-	-	-	0	NOERROR	F	F	F	T	0	203.0.113.10	300.000000	F	0	query
+#close	2026-11-26-03-54-40

@@ -1,0 +1,10 @@
+#separator \x09
+#set_separator	,
+#empty_field	(empty)
+#unset_field	-
+#path	http
+#open	2026-11-26-03-54-40
+#fields	ts	uid	id.orig_h	id.orig_p	id.resp_h	id.resp_p	trans_depth	method	host	uri	referrer	version	user_agent	origin	request_body_len	response_body_len	status_code	status_msg	info_code	info_msg	tags	username	password	proxied	orig_fuids	orig_filenames	orig_mime_types	resp_fuids	resp_filenames	resp_mime_types
+#types	time	string	addr	port	addr	port	count	string	string	string	string	string	string	string	count	count	count	string	count	string	set[enum]	string	string	set[string]	vector[string]	vector[string]	vector[string]	vector[string]	vector[string]	vector[string]
+1772452811.100000	CJioLj2aEkGc9R3T0b	10.1.0.10	50002	203.0.113.30	80	1	GET	files.shop.test	/readme.txt	-	1.1	fixture	-	0	920	200	OK	-	-	(empty)	-	-	-	-	-	-	FqRY4s2oR5MRycofH1	-	text/plain
+#close	2026-11-26-03-54-40
