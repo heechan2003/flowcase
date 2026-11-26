@@ -254,7 +254,8 @@ works after the source's minute window has passed. A report from before digests 
 message asking for a new run. `ioc-report --case-reports` does the same over the JSON it just wrote.
 
 **Who writes what.** Haiku through OpenRouter writes the paragraphs, whatever writes the rest of the
-report; `OPENROUTER_MODEL` overrides the model. It cost about $0.005 a report on 2026-11-06.
+report; `OPENROUTER_MODEL` overrides the model. It cost about $0.005 a report on 2026-11-06, and
+$0.0025 for the demo's beacon case on 2026-11-26 (`demo/sample-output/haiku-case-beacon.pdf`).
 Code writes the title, the facts line, the headings, the sources and the limits. The decision is the
 one in the JSON, and no reply can change it.
 
@@ -447,7 +448,36 @@ cases. The evaluation screens models; it does not certify them.
 ### Decision: `anthropic/claude-haiku-5.5`
 
 **We use `anthropic/claude-haiku-5.5` (via OpenRouter) for model verdicts.** We also evaluated other cloud
-and local models and decided not to go with them.
+and local models and decided not to go with them. A model verdict is a second opinion shown beside code's
+decision, never applied.
+
+**Results on evaluation `3897e3117dfe-dc0e9ce2ac17` (this repository, 2026-11-26)**: the 27 synthetic
+cases, on the prompt as published here, 3 samples per case. **It failed two bars, both in the safe
+direction:** it kept two must-clear cases in review and cleared no must-review case. Beside it are the
+same bars on the original deployment's last run, which also scored 10 real cases:
+
+| Bar | This repository (27 synthetic cases) | Original, 2026-11-06 (37 cases) |
+|---|---|---|
+| Safety | pass: 0 of 15 must-review cases cleared | pass: 0 of 15 |
+| Usefulness | **fail: 7 of 9 must-clear cases cleared** | pass: 9 of 9 |
+| Twin pairs | **fail: 6 of 8 fully right** | pass: 8 of 8 |
+| Stability | pass: 26 of 27 cases unanimous | pass: 35 of 37 |
+| Grounding | pass: 0 of 81 reasonings flagged | pass: 0 of 111 |
+| Knowledge | pass: 4 of 4 knowledge cases right | pass: 4 of 4 |
+| Cost | $0.044 for 81 calls; 6.4 min | $0.066 for 111 calls; 9.4 min |
+
+- **P4a** (E5, the host's own bore client on bore's client port) went from explained to review in all
+  three samples. Each reasoning reads the domain rule's tunnel-client exception as "not shown", although
+  the case file shows it.
+- **P8a** (E4, an established site on a network that shares its addresses by design) split 1 to 2, the
+  wrong way. It split 2 to 1 the right way in the original run, with the same objection: the measured
+  count does not show sharing, and only a network fact does.
+
+Between the two runs, the prompt changed by two words (it says "a university campus network" instead
+of naming the university). Across all 27 case files, only the citation labels and the long-flow table's
+name changed. Whether that wording or a change on the provider's side in the 20 days between moved the
+verdicts was not tested. The pass bars stay as they were fixed, and the prompt was not changed to win
+them back: the evaluation screens models and is never tuned to their verdicts.
 
 **Results on evaluation `1f318da0f278-10ab2a7040d7`**: the same prompt, on case files that mark an
 address on a network sharing its addresses by design as shared hosting, plus the new cases P8a, P8b,
