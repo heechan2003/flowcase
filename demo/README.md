@@ -108,7 +108,7 @@ code, since the demo runs without a model. A run with a model changes only the P
 a decision.
 
 `haiku-case-beacon.pdf` is the beacon case again, with the paragraphs written by
-`anthropic/claude-haiku-5.5` through OpenRouter (2026-11-26, one attempt, $0.0025):
+`anthropic/claude-haiku-5.5` through OpenRouter (2026-11-26, one attempt, $0.0008):
 
 ```shell
 cd packages/ioc-report
