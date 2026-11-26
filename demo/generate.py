@@ -48,7 +48,6 @@ DEMO_END = date(2026, 11, 24)
 """The last day of the world, unless `--end` says otherwise."""
 DAYS = 35
 SCENARIO_DAYS = 3
-DAY_SECONDS = 86_400
 MIN_COHORT = 40
 """`bands.min_cohort` in triage's parameters: a peer band with fewer hosts is not compared."""
 

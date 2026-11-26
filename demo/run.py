@@ -79,7 +79,6 @@ def environment(work: Path) -> dict[str, str]:
         "NETWORK_BEHAVIOUR_LOCK_PATH": here(work / "store.duckdb.lock"),
         "NETWORK_BEHAVIOUR_MIGRATION_DIR": here(TRIAGE / "sql" / "migrations"),
         "NETWORK_BEHAVIOUR_SQL_DIR": here(TRIAGE / "sql" / "source"),
-        "NETWORK_BEHAVIOUR_RUN_DIR": here(work / "runs"),
         "IOC_METADATA_PATH": here(work / "ioc_metadata.json"),
         "NAME_LOOKUP": "rdap",
         "RDAP_CACHE_DIR": here(work / "rdap"),

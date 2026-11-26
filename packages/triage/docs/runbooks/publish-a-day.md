@@ -82,11 +82,3 @@ paths. Common causes:
 
 A rerun of a published day reads no source data and returns identical bytes. If it does not, that is
 a determinism failure and a Tier 0 invariant break — stop and report it rather than republishing.
-
-## Notes
-
-Seven `NETWORK_BEHAVIOUR_*` settings in a typical `.env` are read by nothing:
-`RUN_DIR`, `REVIEW_POLICY`, `MAIN_QUEUE_SIZE`, `PER_CLIENT_CAP`, `PER_FAMILY_CAP`,
-`RANDOM_AUDIT_SIZE`, `BELOW_THRESHOLD_AUDIT_SIZE`. The queue and cap settings are vestiges of a
-capacity-limited design the contract abandoned — the publisher applies no caps (Tier 0 invariant 6).
-They are harmless but misleading; clear them when convenient.

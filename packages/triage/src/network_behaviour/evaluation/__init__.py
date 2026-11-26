@@ -20,7 +20,6 @@ from network_behaviour.evaluation.harness import (
     DayEvaluator,
     RunOutcome,
     StagedTransform,
-    compose,
     restrict_to_clients,
 )
 from network_behaviour.evaluation.injection import ImplantProfile, inject, sweep_profiles
@@ -43,7 +42,6 @@ __all__ = [
     "Section",
     "StagedTransform",
     "build_report",
-    "compose",
     "inject",
     "measure_permutation_null",
     "measure_redundancy",

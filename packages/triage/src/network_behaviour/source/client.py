@@ -84,6 +84,15 @@ class QueryAudit:
     status: str
 
 
+def bytes_read(read_bytes: int) -> str:
+    """`, N bytes read` for a footprint line, or nothing when the source did not measure bytes.
+
+    DuckDB reports rows scanned but no bytes, so its `read_bytes` is always 0; a source that
+    measures bytes and read anything reports more than 0.
+    """
+    return f", {read_bytes:,} bytes read" if read_bytes else ""
+
+
 class AuditSink(Protocol):
     def record(self, audit: QueryAudit) -> None: ...
 

@@ -25,8 +25,6 @@ from random import Random
 
 from network_behaviour.evaluation.harness import DayEvaluator, RunOutcome, restrict_to_clients
 from network_behaviour.evaluation.statistics import shared_order_correlation, summarize
-from network_behaviour.operations.scoring import ScoringPolicies
-from network_behaviour.ranking.models import RankingPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,10 +181,6 @@ def build_report(
         tied_episode_share(baseline),
         tuple(compare(baseline, item) for item in variants),
     )
-
-
-def default_policies(ranking: RankingPolicy) -> ScoringPolicies:
-    return ScoringPolicies(ranking=ranking)
 
 
 def _number(value: float | None) -> str:

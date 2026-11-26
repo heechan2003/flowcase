@@ -351,35 +351,6 @@ def ledger_line(evidence: Evidence, decision: Decision) -> str:
     return "; ".join(parts)
 
 
-def ledger_notes(evidence: Evidence, live: LiveContext) -> str:
-    case = evidence.case
-    notes = []
-    sharing = [
-        f"{server} carried up to {s.most_domains} registered domain(s)"
-        + (
-            f", {max(d.campus_clients for d in s.live_days)} campus host(s) on a queried day"
-            if s.live_days
-            else ""
-        )
-        for server, s in evidence.addresses.items()
-    ]
-    notes.extend(sharing)
-    if episodes := evidence.history.same_service_episodes:
-        notes.append(
-            "triage stream also flagged this host's use of "
-            + ", ".join(
-                f"{e.service_domain or 'a contacted site'} ({e.family} {e.tier}, {e.day})"
-                for e in episodes
-            )
-        )
-    if case.other_indicators:
-        notes.append(f"host matched {len(case.other_indicators)} other indicator(s)")
-    later = [c for c in evidence.contacts if c.source == "live" and min(c.days) > case.days[-1]]
-    if later:
-        notes.append(f"still in contact on {_day_list(d for c in later for d in c.days)}")
-    return "; ".join(notes)
-
-
 def _decision(decision: Decision) -> list[str]:
     source = "[Decision, by code]"
     lines = [

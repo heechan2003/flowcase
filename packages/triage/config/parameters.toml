@@ -7,7 +7,7 @@
 #   fitted_on    date + data range it was fitted against, or "inherited" if never fitted
 #   target       the quantity it was chosen to achieve
 #   effect       the measured consequence, with a docs/CASE_STUDY.md section reference
-#   status       "calibrated" | "inherited-unjustified" | "provisional"
+#   status       "calibrated" | "inherited-unjustified" | "provisional" | "retired"
 #
 # status = "inherited-unjustified" means the value arrived from v1 of the contract and no
 # record exists of what it was chosen to achieve. That is the honest state of most of this

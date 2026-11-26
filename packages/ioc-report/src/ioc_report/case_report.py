@@ -63,14 +63,8 @@ SOURCE_LABELS = {
     "aws.amazon.com": "Amazon",
     "php.net": "PHP",
     "developers.cloudflare.com": "Cloudflare",
-    "cisa.gov": "CISA",
-    "cve.org": "CVE",
     "blog.remirepo.net": "Remi",
-    "deb.sury.org": "Sury",
-    "getcomposer.org": "Composer",
     "developer.wordpress.org": "WordPress",
-    "wordpress.org": "WordPress",
-    "iana.org": "IANA",
 }
 EXPLAINED_NEXT = (
     "This reading would change only with new contact with the listed address that has no ordinary "

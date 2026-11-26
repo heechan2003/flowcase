@@ -19,7 +19,7 @@ Each exchange exercises one loader rule, and
 | inbound SSH-like   | the remote side opened it: `initiator` is `server`                 |
 | long upload        | one long flow of exactly `UPLOAD_BYTES`, split over three minutes  |
 | DNS unanswered     | an unanswered DNS session                                          |
-| lone DNS reply     | Zeek's `dns_unmatched_reply` weird: an unsolicited reply           |
+| lone DNS reply     | an unsolicited reply: dns.log with an rcode, no rtt and no weird   |
 
 Addresses are documentation ranges (servers) and 10.0.0.0/8 (local hosts); names end in `.test`.
 """

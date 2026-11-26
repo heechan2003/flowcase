@@ -3,11 +3,15 @@ from typing import Any
 from network_behaviour.source.client import QueryAudit, QueryOutcome
 from network_behaviour.source.contracts import (
     SOURCE_CONTRACTS,
+    SourceContractReport,
     coverage_reconciliation,
     optional_source_rows,
     validate_coverage,
     validate_metadata,
 )
+from network_behaviour.time import UtcDay
+
+DAY = UtcDay.parse("2026-07-10")
 
 
 def _outcome(columns: tuple[str, ...], rows: list[tuple[Any, ...]]) -> QueryOutcome:
@@ -106,3 +110,13 @@ def test_coverage_exposes_activity_rate_reconciliation() -> None:
     assert result.rate_down_bytes == 51
     assert result.activity_rows == 1_000
     assert result.unique_activity_grain_rows == 999
+
+
+def test_the_footprint_states_bytes_only_when_the_source_measured_them() -> None:
+    """DuckDB counts rows scanned and no bytes, so its 0 is not a measurement to print."""
+    unmeasured = SourceContractReport(DAY, True, True, 2, 1_500, 0, ()).render()
+    measured = SourceContractReport(DAY, True, True, 2, 1_500, 2_048, ()).render()
+
+    assert "1500 rows read, 0.000 seconds" in unmeasured
+    assert "bytes read" not in unmeasured
+    assert "1500 rows read, 2,048 bytes read, 0.000 seconds" in measured

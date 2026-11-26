@@ -8,8 +8,10 @@
 Skips days that are already published, incomplete at source, or legacy selected-only. Writes each
 stream atomically through a .partial file. See docs/runbooks/publish-a-day.md.
 
-Source detail expires in roughly fifteen days (docs/CASE_STUDY.md §1), so a window longer than
-that will fail on days whose source is gone rather than silently skip them.
+A day publishes only while the source still holds its detail. The original source kept about fifteen
+days (docs/CASE_STUDY.md §1), hence the default window; here a day stays while it is loaded, unless
+NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS sets a retention. A window that reaches an expired day fails on
+it rather than silently skipping it.
 """
 
 import argparse

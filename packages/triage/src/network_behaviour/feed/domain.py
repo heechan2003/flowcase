@@ -56,13 +56,6 @@ _TIER_ORDER = {EvidenceTier.E1: 0, EvidenceTier.E2: 1, EvidenceTier.E3: 2}
 _EVIDENCE_MASK = code_mask(*tuple(EvidenceGroup))
 _REASON_MASK = code_mask(*tuple(ReasonCode))
 
-# A resolvable destination is permitted on the stream and forbidden in retained history. The
-# stream is short-lived; the 365-day store is not, and only the first is authorized to carry one.
-# The shape itself is CANONICAL_DOMAIN, imported from normalization.service rather than defined
-# here a second time -- the two definitions drifting apart is exactly how a corrupted domain from
-# the source reached this validation in the first place. See registered_domain's docstring.
-_DOMAIN_SERVICE_BASIS = "domain"
-
 
 class StreamValidationError(ValueError):
     """Raised when a stream would violate the versioned product contract."""
@@ -521,6 +514,12 @@ def _require_service_domain(value: str | None, service_id: str | None) -> None:
         return
     if service_id is None:
         raise StreamValidationError("service domain requires a service ID")
+    # A resolvable destination is permitted on the stream and forbidden in retained history. The
+    # stream is short-lived; the 365-day store is not, and only the first is authorized to carry
+    # one. The shape itself is CANONICAL_DOMAIN, imported from normalization.service rather than
+    # defined here a second time -- the two definitions drifting apart is exactly how a corrupted
+    # domain from the source reached this validation in the first place. See registered_domain's
+    # docstring.
     if (
         not isinstance(value, str)
         or len(value) > MAX_DOMAIN_LENGTH

@@ -287,7 +287,7 @@ _DEVICE_CLAIM = re.compile(
 # "remote code execution", a Windows "user profile", a file's "hash".
 _METHOD = re.compile(
     r"\bCASE_STUDY\b|\b(?:retained|triage|episodes?|digest|verdicts?|blind|shadow|thresholds?|"
-    r"pipeline|detectors?|jaccard|duckdb|clickhouse|activity_1m|long_flow\w*|"
+    r"pipeline|detectors?|jaccard|duckdb|clickhouse|zeek|activity_1m|long_flow\w*|"
     r"rdap|ollama|openrouter|haiku|qwen\w*|llm|language model|models?|(?:cited|c2) profiles?|"
     r"family profiles?|stream|feed|case file|live source|re-?quer\w+|hashed|"
     r"scor(?:e|es|ed|ing)|the input|background|established (?:site|on campus))\b|"

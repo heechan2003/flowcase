@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ioc_report.casefile import Caveat, Observed, caveats, observed_shapes
-from ioc_report.contact import Contact, Evidence
+from ioc_report.contact import Evidence
 from ioc_report.digest import (
     RULE_SHORT,
     CaseDigest,
@@ -19,7 +19,7 @@ from ioc_report.digest import (
     group_label,
     shared_facts,
 )
-from ioc_report.feed import Case, Feed, ListingClaim
+from ioc_report.feed import Case, Feed
 from ioc_report.history import HistoryContext
 from ioc_report.knowledge import THREATFOX, name_facts
 from ioc_report.live import LiveContext
@@ -31,7 +31,6 @@ from ioc_report.rules import (
     REVIEW,
     SHARED_MIN_DOMAINS,
     Decision,
-    Judged,
 )
 from ioc_report.shadow import ShadowVerdict
 from ioc_report.text import day_list
@@ -138,9 +137,9 @@ def listing_line(case: Case) -> str:
     """When ThreatFox first and last saw the indicator, against the first match. Shown only.
 
     The feed's own `threatfox.first_seen_utc`/`last_seen_utc` are the matched flow's start and
-    finish (IOC_Processor `agent/evidence.py`), so ThreatFox's dates come only from the hand-filled
-    metadata file; without it the line says so rather than passing the match time off as a listing.
-    Another list has no such file.
+    finish (`match.py`, as IOC_Processor's `agent/evidence.py` before it), so ThreatFox's dates
+    come only from the metadata file `ioc-match` writes; without it the line says so rather than
+    passing the match time off as a listing. Another list has no such file.
     """
     if case.listing.source != THREATFOX.source:
         return f"{case.listing.source}'s listing dates are not in the feed."
@@ -276,34 +275,6 @@ def rule_counts(results: list[CaseResult]) -> Counter[str]:
     return counts
 
 
-@dataclass(frozen=True, slots=True)
-class IndicatorRow:
-    indicator: str
-    claim: ListingClaim
-    hosts: int
-    review: int
-    explained: int
-
-
-def indicator_rows(results: list[CaseResult]) -> list[IndicatorRow]:
-    grouped: dict[str, list[CaseResult]] = defaultdict(list)
-    for result in results:
-        grouped[result.evidence.case.indicator].append(result)
-    rows = []
-    for indicator, members in sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0])):
-        review = sum(1 for member in members if member.disposition == REVIEW)
-        rows.append(
-            IndicatorRow(
-                indicator,
-                members[0].evidence.case.listing,
-                len(members),
-                review,
-                len(members) - review,
-            )
-        )
-    return rows
-
-
 def shadow_counts(results: list[CaseResult]) -> Counter[str]:
     counts: Counter[str] = Counter()
     for result in results:
@@ -326,11 +297,6 @@ def shadow_worth_a_look(results: list[CaseResult]) -> list[CaseResult]:
         if result.shadow is not None
         and not (result.shadow.agrees(result.disposition) is True and result.shadow.unanimous)
     ]
-
-
-def judged_text(judged: Judged) -> str:
-    item = judged.item
-    return f"contact {item.label}" if isinstance(item, Contact) else f"long flow(s) {item.text}"
 
 
 @dataclass(frozen=True, slots=True)

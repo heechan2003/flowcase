@@ -62,7 +62,8 @@ from ioc_report.shadow import SHADOW_SEEDS, ShadowVerdict, shadow_verdict
 from ioc_report.summary import case_groups, feed_digest, group_digest, observed_union, ordered
 from ioc_report.text import HOST_TOKEN, without_addresses
 
-# The only external model that passed `evals/`. `.env` need not name it.
+# The only external model that passed the original `evals/` run (README, "Evaluating model
+# verdicts"). `.env` need not name it.
 CHOSEN_MODEL = "anthropic/claude-haiku-5.5"
 
 
@@ -77,7 +78,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise FeedError(_no_usable_record(feed.rejected[0].reason if feed.rejected else ""))
         cases = feed.cases[: args.limit] if args.limit else feed.cases
         # The feed carries no ThreatFox dates (its first_seen/last_seen are the match window);
-        # IOC_Processor's hand-filled metadata file supplies them when present.
+        # the metadata file `ioc-match` writes supplies them when present.
         if args.listing is THREATFOX:
             cases = with_listing_dates(
                 cases,

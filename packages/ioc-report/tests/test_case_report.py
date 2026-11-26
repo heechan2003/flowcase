@@ -680,6 +680,7 @@ def test_what_the_checks_allow_in_ordinary_words() -> None:
     assert method_words("Started from the user profile; the file's name, size and hash.") == []
     assert method_words("The rules kept it.") == ["rules"]
     assert method_words("By code, E3 explains it.") == ["E3", "by code"]
+    assert method_words("Zeek's logs show the contact.") == ["zeek"]
     assert report_problems(GOOD) == []
     assert report_problems({"why": "We found no ordinary reason for the contact."}) == []
     assert report_problems({"why": "The name was not in routine campus use."}) == []
