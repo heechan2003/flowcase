@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -17,5 +21,31 @@ jobs:
           python-version: "3.13"
       - name: Install both packages and development tools
         run: uv sync --all-packages --all-extras --locked
-      - name: Format, lint, types, generated docs and tests
+      # Includes the leak check (scripts/check_leaks.py): no routable address, no data file.
+      - name: Format, lint, types, generated docs, tests and leak check
         run: make check
+
+  demo-small:
+    # The whole pipeline on the small synthetic world (`make demo-small`): generate, load, triage,
+    # match, report without a model, and check every planted case against demo/expected.json.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Install both packages and development tools
+        run: uv sync --all-packages --all-extras --locked
+      - name: Run the demo on the small world and check every case
+        run: make demo-small
+      - name: Keep the report and the step logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-small
+          path: |
+            demo/work-small/report/
+            demo/work-small/logs-run/
+          if-no-files-found: ignore
+          retention-days: 7
