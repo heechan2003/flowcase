@@ -169,9 +169,10 @@ def check(work: Path) -> list[str]:
 
 
 def sample(work: Path, out: Path) -> None:
-    """Copy the HTML report and the `SAMPLE_CASES` PDFs into `out`, named for their scenarios."""
+    """Copy the HTML report and the `SAMPLE_CASES` PDFs into `out`, named for their scenarios.
+    Other files there (the paid Haiku sample, `haiku-*`) are left alone."""
     out.mkdir(parents=True, exist_ok=True)
-    for stale in out.glob("*.pdf"):
+    for stale in out.glob("case-*.pdf"):
         stale.unlink()
     report = work / "report"
     (out / "demo.html").write_bytes((report / "demo.html").read_bytes())
