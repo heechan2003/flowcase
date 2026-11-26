@@ -31,7 +31,7 @@ all four tables, in one transaction.
 
 ## Loader version
 
-The mapping below is `zeek-loader-v2` (`LOADER_VERSION` in `loader.py`). Each load records, per day, the
+The mapping below is `zeek-loader-v3` (`LOADER_VERSION` in `loader.py`). Each load records, per day, the
 version and the locality basis (the `--local-nets` ranges, or `zeek-flags`) in `zeek.loaded_day`, beside
 the four tables. No reader queries that schema, and the contract check lists only `flow`, so a mapping
 change never strands a published day; the record says which mapping built the rows a day was read from.
@@ -40,11 +40,13 @@ change never strands a published day; the record says which mapping built the ro
 |---|---|
 | `zeek-loader-v1` | The first mapping |
 | `zeek-loader-v2` | A dns.log row with an `rcode` and no `rtt` is an unsolicited reply, not an unanswered query. Zeek 9 logs a reply it cannot match that way and raises no weird (`fixtures/zeek-real/`) |
+| `zeek-loader-v3` | With `--local-nets` given, an IPv6 side is local by Zeek's flags; before, it was never local, so every IPv6 connection was dropped. Floating-point sums (the minute upload rate, DNS service time) add in a fixed order, so two loads of the same logs write the same bytes |
 
 ## Rules that apply to every table
 
-- **The local side is the client.** Local means inside `--local-nets` (`NETWORK_BEHAVIOUR_LOCAL_NETS`, IPv4) when
-  that is given. Otherwise it is whatever Zeek's `local_orig` and `local_resp` say.
+- **The local side is the client.** When `--local-nets` (`NETWORK_BEHAVIOUR_LOCAL_NETS`, IPv4) is given, an
+  IPv4 side is local when it is inside those networks. Every other side, and every side when no networks
+  are given, is local by Zeek's `local_orig` and `local_resp`.
   - A connection with both sides local, or neither, is dropped, because a border sensor never sees one.
   - Zeek counts private address space as local unless `Site::private_address_space_is_local` is `F`,
     and its private space includes the documentation ranges. On synthetic data, Zeek's flags therefore
@@ -116,7 +118,8 @@ appears as a client, and the DNS family identifies and leaves out such servers a
 - **The upload rate is approximated** (above).
 - **Detail is kept while loaded.** The probe kept about fifteen days (`CASE_STUDY` §1). A Zeek-loaded day
   stays until it is reloaded. `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` reproduces the old limit.
-- **IPv6 locality** comes only from Zeek's flags, and IPv6 servers carry no ASN.
+- **IPv6 locality** comes only from Zeek's flags, with or without `--local-nets`, and IPv6 servers carry
+  no ASN.
 
 ## Synthetic data
 

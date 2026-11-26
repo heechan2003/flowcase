@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import random
 from datetime import UTC, date, datetime, timedelta
 from ipaddress import IPv4Network, ip_network
 from pathlib import Path
 
+import duckdb
 import pytest
 from zeek_logs import DAY, Query, at, conn, dns, write_json, write_tsv
 
@@ -79,6 +81,49 @@ def test_zeek_flags_decide_locality_when_no_networks_are_given(
     _load(tmp_path, nets=False)
 
     assert query("SELECT client_ip, server_ip FROM flow.activity_1m") == [("192.168.5.5", SERVER)]
+
+
+def test_ipv6_follows_zeeks_flags_when_local_networks_are_given(
+    tmp_path: Path, query: Query
+) -> None:
+    host6, remote6 = "2001:db8:1::5", "2001:db8:ff::10"
+    write_json(
+        tmp_path / "logs",
+        "conn",
+        [
+            conn("out6", at("10:00:00"), host6, remote6, orig_p=50001, resp_p=443,
+                 orig_bytes=10, resp_bytes=20, local_orig=True, local_resp=False),
+            # The remote side opened this one, to the host's port 22.
+            conn("in6", at("11:00:00"), remote6, host6, orig_p=40000, resp_p=22,
+                 orig_bytes=30, resp_bytes=40, local_orig=False, local_resp=True),
+            # The IPv4 side is decided by the networks, whatever its flag says.
+            conn("v4", at("12:00:00"), HOST, SERVER, local_orig=False, local_resp=False),
+        ],
+    )  # fmt: skip
+
+    report = _load(tmp_path)
+
+    rows = query(
+        "SELECT client_ip, server_ip, server_port, up_bytes, down_bytes FROM flow.activity_1m "
+        "ORDER BY time"
+    )
+    assert rows == [
+        (host6, remote6, 443, 10, 20),
+        (host6, remote6, 40000, 40, 30),
+        (HOST, SERVER, 443, 100, 200),
+    ]
+    assert report.dropped_connections == 0
+
+
+def test_an_ipv6_connection_zeek_did_not_flag_is_dropped(tmp_path: Path, query: Query) -> None:
+    write_json(
+        tmp_path / "logs", "conn", [conn("bare6", at("10:00:00"), "2001:db8:1::5", "2001:db8::9")]
+    )
+
+    report = _load(tmp_path)
+
+    assert query("SELECT count(*) FROM flow.activity_1m") == [(0,)]
+    assert report.dropped_connections == 1
 
 
 def test_a_day_where_every_connection_is_dropped_says_why(tmp_path: Path) -> None:
@@ -190,6 +235,40 @@ def test_reloading_a_day_replaces_it(tmp_path: Path, query: Query) -> None:
     _load(tmp_path)
 
     assert query("SELECT count(*) FROM flow.activity_1m") == [(1,)]
+
+
+def test_two_loads_of_the_same_logs_write_the_same_bytes(tmp_path: Path) -> None:
+    # Enough connections and DNS transactions that DuckDB splits the sums across threads: the
+    # per-minute upload rate and the DNS service time are floating-point sums.
+    rng = random.Random(7)
+    resolver = "198.51.100.53"
+    conns = [
+        conn(f"c{index}", at("10:00:00") + rng.random() * 10_800, f"10.0.0.{rng.randrange(4)}",
+             f"198.51.100.{rng.randrange(250)}", duration=rng.random() * 300,
+             orig_bytes=rng.randrange(1, 10_000_000))
+        for index in range(5000)
+    ]  # fmt: skip
+    queries = [
+        dns(f"d{index}", at("10:00:00") + rng.random() * 3500, HOST, resolver, "a.example.test",
+            rtt=rng.random() / 10)
+        for index in range(5000)
+    ]  # fmt: skip
+    write_json(tmp_path / "logs", "conn", conns)
+    write_json(tmp_path / "logs", "dns", queries)
+
+    def dump(name: str) -> dict[str, list[tuple[object, ...]]]:
+        path = tmp_path / name
+        load_day(path, DAY, [tmp_path / "logs"], local_nets=NETS)
+        with duckdb.connect(str(path), read_only=True) as connection:
+            return {
+                table: connection.execute(f"SELECT * FROM flow.{table} ORDER BY ALL").fetchall()
+                for table in ("activity_1m", "host_load_5m", "dns_pairs", "long_flows")
+            }
+
+    first = dump("first.duckdb")
+    assert all(first.values())
+    for again in ("second.duckdb", "third.duckdb"):
+        assert dump(again) == first
 
 
 def test_each_day_records_the_mapping_and_locality_that_built_it(
@@ -409,6 +488,34 @@ def test_a_reply_zeek_could_not_match_is_unsolicited_and_counted_once(
 
 
 # --- formats --------------------------------------------------------------------------------------
+
+
+def test_ipv6_dns_follows_zeeks_flags_when_local_networks_are_given(
+    tmp_path: Path, query: Query
+) -> None:
+    host6, resolver6 = "2001:db8:1::5", "2001:db8:53::1"
+    write_json(
+        tmp_path / "logs",
+        "conn",
+        [conn("q6", at("10:00:00"), host6, resolver6, proto="udp", resp_p=53, service="dns",
+              orig_pkts=1, resp_pkts=1, local_orig=True, local_resp=False)],
+    )  # fmt: skip
+    write_json(
+        tmp_path / "logs",
+        "dns",
+        [
+            dns("q6", at("10:00:00"), host6, resolver6, "a.example.test", rtt=0.010),
+            # No conn.log row: the querier counts as local and the resolver as remote.
+            dns("bare6", at("10:30:00"), host6, resolver6, "b.example.test", rtt=0.030),
+        ],
+    )
+
+    _load(tmp_path)
+
+    rows = query(
+        "SELECT client_ip, server_ip, complete_sessions, mean_service_nanos FROM flow.dns_pairs"
+    )
+    assert rows == [(host6, resolver6, 2, 20_000_000)]
 
 
 def test_tsv_logs_load_like_json(tmp_path: Path, query: Query) -> None:
