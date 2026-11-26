@@ -3,11 +3,12 @@
 [tool.uv.workspace]
 members = ["packages/triage", "packages/ioc-report"]
 
-# The demo and fixture scripts (`demo/`, `fixtures/`); each package keeps its own settings.
+# The demo, fixture and repository scripts (`demo/`, `fixtures/`, `scripts/`); each package keeps its
+# own settings.
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["packages", "demo/work"]
+extend-exclude = ["packages", "demo/work", "demo/work-small"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -15,8 +16,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["demo", "fixtures"]
-exclude = ["demo/work/"]
+files = ["demo", "fixtures", "scripts"]
+exclude = ["demo/work/", "demo/work-small/"]
 
 # scapy is only installed by `make zeek-fixture` (inline script metadata), never in the workspace.
 [[tool.mypy.overrides]]

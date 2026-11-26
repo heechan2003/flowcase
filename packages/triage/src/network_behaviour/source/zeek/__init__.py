@@ -6,6 +6,6 @@ DuckDB file. Everything downstream (contracts, readers, detectors, IOC rules) re
 never sees a Zeek field. The mapping rules are in `docs/SOURCE_CONTRACT.md`.
 """
 
-from network_behaviour.source.zeek.loader import LoadReport, ZeekLoadError, load_day
+from network_behaviour.source.zeek.loader import LOADER_VERSION, LoadReport, ZeekLoadError, load_day
 
-__all__ = ["LoadReport", "ZeekLoadError", "load_day"]
+__all__ = ["LOADER_VERSION", "LoadReport", "ZeekLoadError", "load_day"]

@@ -20,7 +20,13 @@ synthetic dataset, so it runs anywhere and holds no data from that network.
 Needs [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer.
 
 ```shell
-make sync     # uv sync --all-packages --all-extras
-make check    # format, lint, types, generated docs and tests for both packages
-make demo     # the whole pipeline on a synthetic network, checked case by case (see demo/README.md)
+make sync         # uv sync --all-packages --all-extras
+make check        # format, lint, types, generated docs and tests for both packages, and the leak check
+make demo         # the whole pipeline on a synthetic network, checked case by case (see demo/README.md)
+make demo-small   # the same cases on fewer background hosts, as CI runs it
+make zeek-fixture # rebuild fixtures/zeek-real with scapy and real Zeek (needs Docker)
 ```
+
+The leak check (`scripts/check_leaks.py`) fails on any IPv4 address outside the private, documentation
+and benchmarking ranges, except a few named public services, and on any data file outside
+`fixtures/zeek-real/`.

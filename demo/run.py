@@ -113,6 +113,13 @@ def check(work: Path) -> list[str]:
     expected = json.loads((DEMO / "expected.json").read_text(encoding="utf-8"))
     report = json.loads((work / "report" / "demo.json").read_text(encoding="utf-8"))
     cases = {(case["indicator"], case["host"]): case for case in report["cases"]}
+    info = world(work)
+    # The small world leaves some peer-percentile rules to chance (`_small_world_optional`).
+    optional: dict[str, list[str]] = (
+        {k: v for k, v in expected["_small_world_optional"].items() if not k.startswith("_")}
+        if info.get("hosts_per_profile") is not None
+        else {}
+    )
     problems = []
     lines = []
     for scenario in generate.SCENARIOS:
@@ -128,8 +135,12 @@ def check(work: Path) -> list[str]:
             "rules": sorted(case["rules"]),
             "explained_by": sorted({f["rule"] for item in items for f in item["explained_by"]}),
         }
-        ok = got == {key: sorted(value) if key != "disposition" else value
-                     for key, value in want.items()}  # fmt: skip
+        loose = set(optional.get(scenario.id, ()))
+        ok = {**got, "rules": sorted(set(got["rules"]) - loose)} == {
+            key: sorted(set(value) - loose) if key == "rules"
+            else sorted(value) if key != "disposition" else value
+            for key, value in want.items()
+        }  # fmt: skip
         explains = f" (contacts: {', '.join(got['explained_by'])})" if got["explained_by"] else ""
         lines.append(
             f"  {'ok' if ok else 'WRONG':7}  {scenario.id:20} {got['disposition']:9} "
@@ -140,7 +151,6 @@ def check(work: Path) -> list[str]:
             problems.append(f"{scenario.id}: expected {want}, got {got}")
     for indicator, host in cases:
         problems.append(f"unplanted case: {indicator} on {host}")
-    info = world(work)
     with duckdb.connect(here(work / "store.duckdb"), read_only=True) as store:
         published = {
             str(row[0])
@@ -197,11 +207,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--end", help="last generated day (default: yesterday, UTC)")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument(
+        "--hosts-per-profile",
+        type=int,
+        help="the small world (see generate.py): the same cases on fewer background hosts",
+    )
+    parser.add_argument(
         "--sample",
         action="store_true",
         help="after a passing check, copy the report and three case PDFs to demo/sample-output/",
     )
     args = parser.parse_args(argv)
+    if args.sample and args.hosts_per_profile is not None:
+        parser.error("--sample keeps the full world's output; run it without --hosts-per-profile")
     work: Path = args.work.resolve()
     work.mkdir(parents=True, exist_ok=True)
     env = environment(work)
@@ -213,6 +230,8 @@ def main(argv: list[str] | None = None) -> int:
         for stale in ("source.duckdb", "store.duckdb"):
             (work / stale).unlink(missing_ok=True)
         extra = ["--end", args.end] if args.end else []
+        if args.hosts_per_profile is not None:
+            extra += ["--hosts-per-profile", str(args.hosts_per_profile)]
         run(
             [
                 str(BIN / "python"),

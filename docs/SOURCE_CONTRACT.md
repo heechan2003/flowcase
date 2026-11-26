@@ -29,6 +29,18 @@ A folder of Zeek's dated subfolders (`YYYY-MM-DD/`) contributes day D and day D+
 when it ends, so one that crosses midnight is in the next day's logs. Loading a day replaces that day in
 all four tables, in one transaction.
 
+## Loader version
+
+The mapping below is `zeek-loader-v2` (`LOADER_VERSION` in `loader.py`). Each load records, per day, the
+version and the locality basis (the `--local-nets` ranges, or `zeek-flags`) in `zeek.loaded_day`, beside
+the four tables. No reader queries that schema, and the contract check lists only `flow`, so a mapping
+change never strands a published day; the record says which mapping built the rows a day was read from.
+
+| Version | Change |
+|---|---|
+| `zeek-loader-v1` | The first mapping |
+| `zeek-loader-v2` | A dns.log row with an `rcode` and no `rtt` is an unsolicited reply, not an unanswered query. Zeek 9 logs a reply it cannot match that way and raises no weird (`fixtures/zeek-real/`) |
+
 ## Rules that apply to every table
 
 - **The local side is the client.** Local means inside `--local-nets` (`NETWORK_BEHAVIOUR_LOCAL_NETS`, IPv4) when
