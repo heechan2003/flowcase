@@ -11,6 +11,9 @@ requires-python = ">=3.12"
 # network-behaviour is the workspace member packages/triage (see [tool.uv.sources]).
 dependencies = [
     "network-behaviour",
+    # Imported here directly as well as through network-behaviour, with its constraints.
+    "duckdb>=1.2,<2",
+    "tldextract==5.3.1",
     # The case reports' PDF engine. It embeds New Computer Modern, so it needs no LaTeX or fonts.
     "typst==0.15.0",
 ]

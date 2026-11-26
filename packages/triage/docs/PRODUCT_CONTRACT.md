@@ -63,7 +63,8 @@ alike.
 
 ### Observed client identity
 
-`client_ip` is the client address observed by the probe. It is not a durable host identity, and no field in the
+`client_ip` is the observed client address: the local side of each connection, as the original probe oriented
+it and the Zeek loader still does. It is not a durable host identity, and no field in the
 four authorized sources establishes stronger continuity — `subscriber_id` and `client_tag` are strict 1:1
 aliases for the address (`CASE_STUDY` §6). Address reassignment may combine observations from different
 assets. Any aggregation spanning more than one day carries an unquantifiable reassignment risk and must state
@@ -77,9 +78,10 @@ admits it however quiet it is: `client_ip` is an observed address and not a devi
 is not a question this data can answer, and the retired v1 gate (`active_5m_buckets >= 10 or flow_count >=
 100`) showed what such a gate hides — on 2026-08-09 two of its three exclusions had moved tens of megabytes
 through a single service. What v3 asks instead is whether any of the address's traffic can be interpreted.
-60–75% of observed addresses carry nothing but unaddressed rows, with no server address, port or domain
-(`CASE_STUDY` §3), so they have nothing external to measure; the transfer and fanout families do not score
-them, and they sit in no peer or calibration pool (`baseline-calibration-v7`). DNS is not gated:
+An address with no service row has nothing external to measure; the transfer and fanout families do not score
+it, and it sits in no peer or calibration pool (`baseline-calibration-v7`). On the original source that was
+60–75% of observed addresses, which carried nothing but unaddressed rows, with no server address, port or
+domain (`CASE_STUDY` §3). The Zeek loader writes no unaddressed rows (`docs/SOURCE_CONTRACT.md`). DNS is not gated:
 `activity_1m` carries no DNS rows, so the DNS family scores its own population of addresses that sent
 a query. Each run takes a population census and records what it put in or out of scope, in `ops.pipeline_run`.
 `behavioural-support-v2` (no gate) decided days up to the first published under `primary-detectors-v9`.
@@ -93,14 +95,15 @@ Two gates abort a day before anything is written, under invariant 5.
 | `population_step` | The scored population — addresses with at least one service row — moves more than `drift.population_step_fraction` against the most recent retained day with the same UTC weekday | The source measuring a different amount of what is scored. It is the population relationship and persistence prevalence are drawn from (`baselines/engine.py`) |
 | `composition_tvd` | The `service_basis` mix moves further than `drift.composition_tvd` in total variation against the most recent published day | The source measuring a different thing — a basis shift that leaves the address count untouched |
 
-The population is the scored one, not every observed address: 60–75% of observed addresses carry only
-unaddressed rows (`CASE_STUDY` §3), every population step the first gate reacted to was in them alone
-(`CASE_STUDY` §2), and since `behavioural-support-v3` no activity family scores them or pools them. The gated
+The population is the scored one, not every observed address: on the original source 60–75% of observed
+addresses carried only unaddressed rows (`CASE_STUDY` §3), every population step the first gate reacted to was
+in them alone (`CASE_STUDY` §2), and since `behavioural-support-v3` no activity family scores such an address
+or pools it. The gated
 population and the in-scope population are the same addresses by definition. It is compared weekday to weekday because it follows the
 week. Both counts come from retained history, so the comparison does not depend on which support definition
 either day ran under. A day with no earlier same-weekday day, or no prior published day, has nothing to compare
-and passes saying so; a gap is reported, never compensated for. Addresses carrying only unaddressed rows are
-counted in the drift render and gate nothing.
+and passes saying so; a gap is reported, never compensated for. Addresses with no service row are counted in
+the drift render and gate nothing.
 
 A third check aborts nothing. `dns_population_step` compares the DNS population — addresses that sent a DNS
 query, DNS servers left out, the population DNS resolver novelty divides by — against the most recent day with
@@ -136,8 +139,8 @@ nothing and is retained against upstream change.
 
 Stated here because their absence has already produced incorrect designs:
 
-- **`server_port` is the remote side's port, whichever side opened the session.** The probe orients the campus side
-  as the client in every row of both tables. `activity_1m` records sessions the remote side opened
+- **`server_port` is the remote side's port, whichever side opened the session.** The original probe oriented
+  the campus side as the client in every row of both tables, and the Zeek loader does the same. `activity_1m` records sessions the remote side opened
   like any other, and has no column for direction or for the campus port, so **direction cannot be read
   from it**. `long_flows.initiator` records direction for long flows only; in its `server` rows
   `client_port` is the campus service port, so direction is measured only on long flows (`CASE_STUDY` §7).
@@ -161,7 +164,8 @@ contribute only to host totals and opaque bytes.
 
 Port groups use the versioned `port-groups-v1` exact-value allowlist; all other values map to `other_system`,
 `other_registered`, `dynamic` or `unknown`, and unknown ports do not support vertical fanout. `server_port` is
-zero on most rows (`CASE_STUDY` §5), so port-group fanout rests on a sparse field.
+zero on most rows of the original source (`CASE_STUDY` §5), so port-group fanout rested on a sparse field
+there. The Zeek loader sets it on every TCP and UDP row; ICMP and other protocols carry 0.
 
 The activity bitmap has 288 five-minute buckets in exactly 36 bytes, bucket zero at the least-significant bit of
 byte zero.
@@ -179,7 +183,7 @@ or endpoint string is retained in either grain.** Ratios and shares are derived 
 
 | Concern | Identifier |
 |---|---|
-| Package | `0.3.0` |
+| Package | `0.2.0` |
 | DuckDB schema | `10` |
 | Domain codes | `domain-codes-v3` — evidence-group codes 8, 10, 11 and 12 retired, never reused |
 | Source query bundle | `zeek-source-bundle-v1` — the `sql/source/` queries over Zeek-loaded tables; `phase3-source-bundle-v2`/`-v3` were the ClickHouse originals |
@@ -207,8 +211,9 @@ compatibility identifiers with no product meaning. The released alternate checks
 
 **A published day is never re-derived. A behaviour change applies to days published after it.**
 
-This is not a preference. Source detail expires in roughly fifteen days while retained history runs 365, so
-most of the archive has no source left to rebuild from; and a published day is reconstructed and verified
+This is not a preference. Source detail can expire while retained history runs 365 days: the original source
+kept about fifteen, and here a day expires after `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` when that is set, so
+most of an archive can have no source left to rebuild from; and a published day is reconstructed and verified
 against a stored SHA-256, byte count and evidence count, so re-encoding one breaks its digest and invariant 2
 with it. There is no conversion path between generations and there cannot be one. `feed_schema_version` and the
 behavior version lists below are **dispatch keys and allow-lists, not converters**.
@@ -224,10 +229,13 @@ behaviour pair, and the stored digest, byte count and evidence count must reconc
 schema and per-query versions were compared by equality, and the 25 `daily-candidate-feed-v1` days written
 at schema 7 (2026-07-13 → 08-09) were refused although nothing about them had changed.
 
-Compatible historical behavior pairs, returned byte-for-byte without source access and never re-ordered:
-`primary-detectors-v8 / episode-ordering-v4`, `primary-detectors-v7 / episode-ordering-v4`,
-`primary-detectors-v2 / episode-ranking-v1`, `primary-detectors-v2 / episode-ranking-v2`,
-`primary-detectors-v2 / episode-ordering-v3`.
+The registry holds 10 behaviour pairs (`ranking/models.py`, `COMPATIBLE_BEHAVIOUR_VERSION_PAIRS`): the
+current `primary-detectors-v9 / episode-ordering-v4`, and 9 historical pairs, returned byte-for-byte without
+source access and never re-ordered: `primary-detectors-v8 / episode-ordering-v4`,
+`primary-detectors-v7 / episode-ordering-v4`, `primary-detectors-v6 / episode-ordering-v4`,
+`primary-detectors-v5 / episode-ordering-v3`, `primary-detectors-v4 / episode-ordering-v3`,
+`primary-detectors-v3 / episode-ordering-v3`, `primary-detectors-v2 / episode-ordering-v3`,
+`primary-detectors-v2 / episode-ranking-v2`, `primary-detectors-v2 / episode-ranking-v1`.
 
 Compatible baseline generations: `baseline-calibration-v7`, `baseline-calibration-v6`, `baseline-calibration-v5`, `baseline-calibration-v4`, `baseline-calibration-v3`, `baseline-calibration-v2`. A day whose `ops.pipeline_run.baseline_version` is
 null was published before migration `0009` recorded it, and remains readable for the same reason — it cannot be
@@ -280,7 +288,7 @@ They are replaced by an honest partial order:
   `tie_group`. Where v1 spread 514 equivalent episodes across ranks 1–514, this reports 514 episodes at
   `tie_group` 1 and lets the consumer see they are equivalent.
 - **`evidence_tier`** — `E1` / `E2` / `E3`, renamed from `priority_tier`. "Priority" asserted an ordering claim
-  the evidence does not support, and the top tier holds 30% of the stream.
+  the evidence does not support, and the top tier held 30% of the stream on the original source.
 
 The ordering key is unchanged in substance and remains fully deterministic: tier, then strength, then
 independent family count, then corroboration, then history confidence, then data-quality confidence, then
@@ -297,10 +305,10 @@ carried `service_id: null`. Episodes are therefore resolvable:
 - No domain appears on evidence rows that did not affect the decision.
 - `null` carries two meanings and consumers must not conflate them: the basis is not `domain`, **or** the day
   was published before 2026-08-23, when population began. Days published earlier keep `null` permanently —
-  retained history is hashed and the source keeps roughly fifteen days, so their domains are unrecoverable by
-  construction. This is a gap in coverage, never evidence that a service had no domain.
-- No raw domain, SNI, DNS or endpoint string is written to retained history, which stays hashed. The source
-  keeps roughly fifteen days; retained history keeps 365. Emitting a resolvable identifier on a short-lived
+  retained history is hashed and the original source kept about fifteen days, so their domains are
+  unrecoverable by construction. This is a gap in coverage, never evidence that a service had no domain.
+- No raw domain, SNI, DNS or endpoint string is written to retained history, which stays hashed. The source's
+  detail is short-lived (the original source kept about fifteen days); retained history keeps 365. Emitting a resolvable identifier on a short-lived
   stream is not the same act as building a year-long browsing archive, and only the first is authorized.
 - No raw server IP, flow record, source row, user agent, review content or free-text evidence appears anywhere
   in the stream.
@@ -321,6 +329,9 @@ source_detail_expires_at, evidence`.
 Evidence entry: `evidence_group, metric_code, observed_value, client_baseline_value, peer_reference_value,
 self_strength, peer_strength, metric_strength, support_count`. At most one entry per evidence group, and only
 groups that affected eligibility, tier or ordering.
+
+`source_detail_expires_at` is the end of the day plus `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS`, and null when
+that is unset and the source keeps a day while it is loaded.
 
 Counts, IDs, sequence contiguity, tie-group monotonicity, tier order, version linkage, UTC timestamps, masks and
 stored digest must reconcile.
@@ -362,7 +373,8 @@ confidence caps, deterministic ties, stable IDs, sequence contiguity, tie-group 
 inclusion; stream field validation, privacy, evidence parity, digest checks, bulk persistence, rollback, and
 reads beyond 10,000 episodes; atomic publication, interruption recovery, idempotency, source-free byte-stable
 reruns, later-day immutability, legacy-day rejection, storage guards, backup and restore, CLI output; and
-opt-in aggregate-only read-only source contracts.
+aggregate-only, read-only source queries, checked by `validate_sql` and run against a loaded synthetic source.
+There is no live contract test: the source is the DuckDB file `load-zeek` writes.
 
 This suite proves correctness only. `docs/EVALUATION.md` is the separate gate for output quality.
 

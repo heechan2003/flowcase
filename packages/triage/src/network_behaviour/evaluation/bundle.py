@@ -14,7 +14,6 @@ bundle is not edited — a superseding measurement is a new bundle that referenc
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -130,7 +129,3 @@ def _slug(value: str) -> str:
     while "--" in slug:
         slug = slug.replace("--", "-")
     return slug.strip("-") or "bundle"
-
-
-def section_titles() -> Sequence[str]:
-    return [f"{number}. {title}" for number, title, _ in SECTIONS]

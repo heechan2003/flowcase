@@ -13,9 +13,14 @@ from ioc_report.feed import Case, load_feed
 from ioc_report.live import (
     MINUTE_HORIZON_DAYS,
     SQL_ROOT,
+    LiveContext,
     LiveSession,
     plan_days,
 )
+from ioc_report.outline import _caveat_action, _caveat_would_change
+from ioc_report.rules import decide
+from ioc_report.summary import CaseResult
+from tests.builders import evidence, load
 from tests.conftest import minute_row, record, write_feed
 
 NOW = datetime(2026, 10, 7, 9, 0, tzinfo=UTC)
@@ -167,6 +172,9 @@ def test_every_query_passes_the_triage_sql_guard() -> None:
         ("ioc_pair_long_flows", 2),
         ("ioc_host_context", 2),
         ("ioc_host_after", 1),
+        ("ioc_source_extent", 1),
+        ("ioc_match_minutes", 1),
+        ("ioc_match_long_flows", 1),
     ):
         query = SqlLoader(SQL_ROOT).load(name, version, timeout_seconds=60, kind=SqlKind.DATA)
         assert query.bounded and query.aggregate_only
@@ -267,3 +275,23 @@ def test_contacts_are_in_minute_order_whatever_order_the_source_returns(tmp_path
     first, second = live.contacts[("192.0.2.10", "1.1.1.1")]
     assert (first.port, second.port) == (443, 8443)
     assert first.minute_epochs[0] < second.minute_epochs[0]
+
+
+def test_the_live_caveat_names_the_sources_own_retention(tmp_path: Path) -> None:
+    feed, case = load(tmp_path, [record([minute_row("2026-10-05 10:00:00")])])
+
+    def texts(retention: int | None) -> tuple[str, str]:
+        live = LiveContext(status="unavailable", error="refused", retention_days=retention)
+        found = evidence(feed, case, live=live)
+        result = CaseResult(found, decide(found, feed.domain_indicators))
+        return _caveat_action("live", result), _caveat_would_change("live", result)
+
+    assert texts(15) == (
+        "Run each feed within 13 days of arrival, so the live source re-checks every contact.",
+        "a re-query of the match day inside the source's 13-day window",
+    )
+    assert texts(30)[0].startswith("Run each feed within 28 days")
+    assert texts(None) == (
+        "Run the report with the live source, so it re-checks every contact.",
+        "a re-query of the match day from the live source",
+    )

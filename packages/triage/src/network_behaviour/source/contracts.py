@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from network_behaviour.source.client import QueryOutcome, ReadOnlyQueryRunner
+from network_behaviour.source.client import QueryOutcome, ReadOnlyQueryRunner, bytes_read
 from network_behaviour.source.sql import SqlKind, SqlLoader
 from network_behaviour.time import UtcDay
 
@@ -167,8 +167,8 @@ class SourceContractReport:
             "sources: activity_1m, host_load_5m, dns_pairs, long_flows",
             f"day: {day}",
             f"query footprint: {self.query_count} aggregate/metadata queries, "
-            f"{self.returned_rows} rows returned, {self.read_rows} rows read, "
-            f"{self.read_bytes} bytes read, {self.elapsed_seconds:.3f} seconds",
+            f"{self.returned_rows} rows returned, {self.read_rows} rows read"
+            f"{bytes_read(self.read_bytes)}, {self.elapsed_seconds:.3f} seconds",
         ]
         lines.extend(
             f"issue: {issue.source} {issue.code} - {issue.detail}" for issue in self.issues

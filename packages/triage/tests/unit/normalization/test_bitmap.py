@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
-from itertools import permutations
+from itertools import pairwise, permutations
+from random import Random
 
 import pytest
 
@@ -55,3 +56,56 @@ def test_timestamp_bucket_mapping_is_utc_and_day_bounded() -> None:
 def test_bitmap_rejects_wrong_width(size: int) -> None:
     with pytest.raises(ValueError):
         ActivityBitmap(bytes(size))
+
+
+def _old_buckets(bitmap: ActivityBitmap) -> tuple[int, ...]:
+    """The byte-loop implementation the integer one replaced, kept as an oracle."""
+    return tuple(b for b in range(288) if bitmap.value[b // 8] & (1 << (b % 8)))
+
+
+def _old_derived(bitmap: ActivityBitmap) -> tuple[object, ...]:
+    buckets = _old_buckets(bitmap)
+    return (
+        buckets,
+        sum(byte.bit_count() for byte in bitmap.value),
+        buckets[0] if buckets else None,
+        buckets[-1] if buckets else None,
+        sum(i == 0 or b != buckets[i - 1] + 1 for i, b in enumerate(buckets)),
+        sum(max(0, right - left - 1) for left, right in pairwise(buckets)),
+    )
+
+
+def _bitmap_cases() -> list[ActivityBitmap]:
+    rng = Random(20261126)
+    edges = [
+        ActivityBitmap(),
+        ActivityBitmap(bytes([0xFF] * BITMAP_BYTES)),
+        ActivityBitmap.from_buckets([0]),
+        ActivityBitmap.from_buckets([287]),
+        ActivityBitmap.from_buckets([0, 287]),
+        ActivityBitmap(bytes([0x55] * BITMAP_BYTES)),
+        ActivityBitmap(bytes([0xAA] * BITMAP_BYTES)),
+    ]
+    randoms = [
+        ActivityBitmap.from_buckets(rng.sample(range(288), rng.randint(1, 288))) for _ in range(500)
+    ]
+    sparse = [
+        ActivityBitmap.from_buckets(rng.sample(range(288), rng.randint(1, 6))) for _ in range(200)
+    ]
+    return edges + randoms + sparse
+
+
+def test_bitmap_derivations_match_the_byte_loop_oracle() -> None:
+    cases = _bitmap_cases()
+    for bitmap in cases:
+        assert (
+            bitmap.active_buckets(),
+            bitmap.count,
+            bitmap.first_bucket,
+            bitmap.last_bucket,
+            bitmap.run_count,
+            bitmap.internal_gap_count,
+        ) == _old_derived(bitmap)
+    for left, right in zip(cases, reversed(cases), strict=True):
+        expected = bytes(a | b for a, b in zip(left.value, right.value, strict=True))
+        assert (left | right).value == expected

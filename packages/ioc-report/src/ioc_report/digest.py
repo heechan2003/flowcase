@@ -15,11 +15,11 @@ from dataclasses import dataclass
 
 from ioc_report.after import UPLOAD_BYTES
 from ioc_report.casefile import after_contact, caveats
-from ioc_report.contact import Contact, Evidence, FlowContact
+from ioc_report.contact import Contact, Evidence, FlowContact, by_label
 from ioc_report.facts import story
 from ioc_report.history import HistoryContext, ServingAddress
 from ioc_report.knowledge import other_list_background
-from ioc_report.live import LiveContext
+from ioc_report.live import LiveContext, after_days, after_rows
 from ioc_report.rules import (
     ECH_HIDDEN,
     EXPLAINED,
@@ -315,9 +315,10 @@ def _host(evidence: Evidence, live: LiveContext) -> list[Line]:
 
 def _habitual(evidence: Evidence, live: LiveContext) -> Line | None:
     """The names the address used on the most days phase 3 read: review cases only."""
-    if live.destinations is None or not live.destination_days:
+    read = after_days(live, evidence.case)
+    if live.destinations is None or not read:
         return None
-    rows = live.destinations.get(evidence.case.source_host, ())
+    rows = after_rows(live, evidence.case)
     days: dict[str, set[object]] = defaultdict(set)
     for row in rows:
         if row.root_domain:
@@ -328,7 +329,7 @@ def _habitual(evidence: Evidence, live: LiveContext) -> Line | None:
     listed = ", ".join(f"{name} ({len(seen)})" for name, seen in ranked)
     return Line(
         "Live source",
-        f"names it used on the most of the {len(live.destination_days)} day(s) read, with the "
+        f"names it used on the most of the {len(read)} day(s) read, with the "
         f"number of days: {listed}.",
     )
 
@@ -389,13 +390,15 @@ def _kinds(evidence: Evidence) -> list[Line]:
         for index, contact in enumerate(evidence.contacts)
         if not evidence.hidden_contact(index)
     ]
-    if len(shown) < 2:
+    grouped = by_label(shown)
+    if len(grouped) < 2:
         return []
     kinds = [
-        f"{contact.label}, {len(contact.minutes)} minute(s), {size(contact.down_bytes)} received"
-        for contact in shown[:LISTED]
+        f"{label}, {len({m for contact in group for m in contact.minutes})} minute(s), "
+        f"{size(sum(contact.down_bytes for contact in group))} received"
+        for label, group in list(grouped.items())[:LISTED]
     ]
-    more = len(shown) - LISTED
+    more = len(grouped) - LISTED
     return [
         Line(
             "IOC feed and live source",
@@ -462,14 +465,19 @@ def _kept(evidence: Evidence, findings: Sequence[Finding]) -> list[str]:
                 }
             )
             visit = found[0].text.partition("; ")[2]
+            # One finding per contact, and its text names the contact's label: identical texts
+            # are one kind of contact seen on several days.
+            kinds = len(dict.fromkeys(finding.text for finding in found))
             lines.append(
-                f"K1: the host's traffic named the flagged domain on {len(found)} kind(s) of "
+                f"K1: the host's traffic named the flagged domain on {kinds} kind(s) of "
                 f"contact ({_listed(names)}); {visit}."
             )
         elif len(found) == 1:
             lines.append(f"{rule}: {found[0].text}.")
         else:
-            lines.append(f"{rule} on {len(found)} items; the first: {found[0].text}.")
+            # Findings are already one per text (`rules._keeps`): K3 gives one per stream
+            # episode and K4 one per scheduled day, so the count is findings, not contacts.
+            lines.append(f"{rule} on {len(found)} finding(s); the first: {found[0].text}.")
     return lines
 
 
@@ -483,7 +491,7 @@ def _unexplained(evidence: Evidence, decision: Decision) -> list[str]:
         contacts = [m.item for m in members if isinstance(m.item, Contact)]
         flows = [m.item for m in members if isinstance(m.item, FlowContact)]
         what = (
-            (f"{len(contacts)} contact(s)" if contacts else "")
+            (f"{len(by_label(contacts))} kind(s) of contact" if contacts else "")
             + (" and " if contacts and flows else "")
             + (f"{len(flows)} long flow(s)" if flows else "")
         )
@@ -499,17 +507,30 @@ def _unexplained(evidence: Evidence, decision: Decision) -> list[str]:
 
 
 def _explaining(evidence: Evidence, decision: Decision) -> list[str]:
-    counts: Counter[str] = Counter()
+    """What each explaining rule covers: kinds of contact (`by_label`, so a contact on several
+    days is one) and long flows."""
+    kinds: dict[str, set[str]] = defaultdict(set)
+    flows: Counter[str] = Counter()
     texts: dict[str, str] = {}
     for judged in _visible(evidence, (*decision.contacts, *decision.flows), decision):
         for finding in judged.explained_by:
-            counts[finding.rule] += 1
             if isinstance(judged.item, Contact):
+                kinds[finding.rule].add(judged.item.label)
                 texts.setdefault(finding.rule, finding.text)
-    return [
-        f"{rule} explains {counts[rule]} item(s)" + (f": {texts[rule]}." if rule in texts else ".")
-        for rule in sorted(counts)
-    ]
+            else:
+                flows[finding.rule] += 1
+    lines = []
+    for rule in sorted(set(kinds) | set(flows)):
+        what = " and ".join(
+            part
+            for part in (
+                f"{len(kinds[rule])} kind(s) of contact" if kinds.get(rule) else "",
+                f"{flows[rule]} long flow(s)" if flows[rule] else "",
+            )
+            if part
+        )
+        lines.append(f"{rule} explains {what}" + (f": {texts[rule]}." if rule in texts else "."))
+    return lines
 
 
 def _visible(evidence: Evidence, items: Iterable[Judged], decision: Decision) -> list[Judged]:

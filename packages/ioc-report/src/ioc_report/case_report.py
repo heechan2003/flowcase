@@ -63,14 +63,8 @@ SOURCE_LABELS = {
     "aws.amazon.com": "Amazon",
     "php.net": "PHP",
     "developers.cloudflare.com": "Cloudflare",
-    "cisa.gov": "CISA",
-    "cve.org": "CVE",
     "blog.remirepo.net": "Remi",
-    "deb.sury.org": "Sury",
-    "getcomposer.org": "Composer",
     "developer.wordpress.org": "WordPress",
-    "wordpress.org": "WordPress",
-    "iana.org": "IANA",
 }
 EXPLAINED_NEXT = (
     "This reading would change only with new contact with the listed address that has no ordinary "
@@ -99,8 +93,8 @@ _KEPT_BY = re.compile(r"[EK]\d \(([^)]*)\)")
 _WORDING: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     (re.compile(pattern), plain)
     for pattern, plain in (
-        (r"^[EK]\d explains (\d+) item\(s\)", r"An ordinary reason covers \1 item(s)"),
-        (r"^[EK]\d on (\d+) items; the first: ", r"\1 items; the first: "),
+        (r"^[EK]\d explains ", "An ordinary reason covers "),
+        (r"^[EK]\d on (\d+) finding\(s\); the first: ", r"\1 finding(s); the first: "),
         (r"^[EK]\d: ", ""),
         (
             r"established \(\d+\+ addresses on \d+\+ days(?:, CASE_STUDY §\d+)?\): (yes|no)",
@@ -155,9 +149,9 @@ _WORDING: tuple[tuple[re.Pattern[str], str], ...] = tuple(
         (r"\bbotnet_cc\b", "botnet command and control"),
         (r"\bpayload_delivery\b", "payload delivery"),
         (r"\bexploit_source\b", "exploit source"),
-        (r"(\d+) kinds of contact", r"\1 distinct connections (address, port and name)"),
-        (r"(\d+) kind\(s\) of contact", r"\1 distinct connection(s)"),
-        (r"the kinds of contact:", "the distinct connections:"),
+        (r"(\d+) kinds of contact", r"\1 address, port and name combinations"),
+        (r"(\d+) kind\(s\) of contact", r"\1 address, port and name combination(s)"),
+        (r"the kinds of contact:", "the address, port and name combinations:"),
         (r"Not explained: ", "No ordinary reason found: "),
         (r"The first in full: ", "In detail: "),
         (r"compromised legitimate sites", "hijacked legitimate sites"),

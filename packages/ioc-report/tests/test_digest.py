@@ -3,10 +3,12 @@ them, and code's own overview when no model writes one."""
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from ioc_report.digest import case_digest, group_label
 from ioc_report.history import Coverage, HistoryContext
+from ioc_report.live import LiveContext, PairContact
 from ioc_report.rules import decide
 from ioc_report.summary import CaseResult, case_text
 from tests.builders import SKIPPED, evidence, load
@@ -49,9 +51,10 @@ def test_a_hundred_contacts_read_as_their_reasons(tmp_path: Path) -> None:
     unexplained = [line for line in text.splitlines() if "Not explained:" in line]
     assert len(result.decision.unexplained) == 42
     assert len(unexplained) == 2
-    assert any("40 contact(s)" in line and "and 34 more" in line for line in unexplained)
+    assert any("40 kind(s) of contact" in line and "and 34 more" in line for line in unexplained)
     assert any(
-        "2 contact(s)" in line and "under the flagged domain" in line for line in unexplained
+        "2 kind(s) of contact" in line and "under the flagged domain" in line
+        for line in unexplained
     )
     k1 = [line for line in text.splitlines() if "K1:" in line]
     assert len(k1) == 1 and "2 kind(s) of contact" in k1[0]
@@ -88,3 +91,102 @@ def test_an_address_with_no_retained_day_still_has_a_host_line(tmp_path: Path) -
     result, _text = _lure(tmp_path, ad_names=0)
     assert result.digest is not None
     assert [line.text for line in result.digest.host] == ["nothing about this address is retained."]
+
+
+def _daily(tmp_path: Path, ports: tuple[int, ...]) -> str:
+    """A lure the live source returns once per day, as it groups contacts: three days on 443, plus
+    one day on each further port."""
+    day = date(2026, 10, 15)
+    host, server, lure = "192.0.2.10", "1.1.1.1", "lure.example.com"
+
+    def daily(on: date, port: int, minutes: int) -> PairContact:
+        start = int(datetime(on.year, on.month, on.day, 3, tzinfo=UTC).timestamp()) // 60
+        epochs = tuple(range(start, start + minutes))
+        return PairContact(
+            day=on, server_ip=server, transport=6, port=port, sni=lure,
+            root_domain="example.com", dns="", asn="13335", active_minutes=minutes,
+            minute_epochs=epochs, up_bytes=1000, down_bytes=10_000, flows=minutes,
+        )  # fmt: skip
+
+    days = tuple(day + timedelta(days=n) for n in range(3))
+    contacts = [daily(on, 443, 2 + n) for n, on in enumerate(days)]
+    contacts += [daily(days[1], port, 1) for port in ports]
+    live = LiveContext(
+        status="queried", days_queried=days, contacts={(host, server): tuple(contacts)}
+    )
+    feed, case = load(
+        tmp_path,
+        [
+            record(
+                [minute_row("2026-10-15 03:00:00", sni=lure, root="example.com", down=10_000)],
+                indicator=lure,
+                threat_type="payload_delivery",
+            )
+        ],
+    )
+    found = evidence(feed, case, live=live)
+    decision = decide(found, feed.domain_indicators)
+    retained = HistoryContext(tmp_path / "none.duckdb", Coverage(frozenset(), frozenset()), {})
+    return case_digest(found, decision, live, retained).text()
+
+
+def test_one_address_port_and_name_across_three_days_is_one_kind(tmp_path: Path) -> None:
+    text = _daily(tmp_path, ports=())
+
+    assert "kinds of contact" not in text
+    assert (
+        "The host's contact with the flagged address: 1.1.1.1 443/TCP, SNI lure.example.com, "
+        "9 minute(s) on 2026-10-15..2026-10-17"
+    ) in text
+    assert "named the flagged domain on 1 kind(s) of contact" in text
+    assert "Not explained: 1 kind(s) of contact with 1.1.1.1" in text
+
+
+def test_a_rule_explains_a_contact_on_three_days_as_one_kind(tmp_path: Path) -> None:
+    """E1 on a UDP contact the live source returns on three days: one kind, not three items."""
+    day = date(2026, 10, 15)
+    host, server = "192.0.2.10", "1.1.1.1"
+
+    def daily(on: date, minutes: int) -> PairContact:
+        start = int(datetime(on.year, on.month, on.day, 3, tzinfo=UTC).timestamp()) // 60
+        return PairContact(
+            day=on, server_ip=server, transport=17, port=443, sni="", root_domain="", dns="",
+            asn="13335", active_minutes=minutes, minute_epochs=tuple(range(start, start + minutes)),
+            up_bytes=1000, down_bytes=10_000, flows=minutes,
+        )  # fmt: skip
+
+    days = tuple(day + timedelta(days=n) for n in range(3))
+    live = LiveContext(
+        status="queried",
+        days_queried=days,
+        contacts={(host, server): tuple(daily(on, 2 + n) for n, on in enumerate(days))},
+    )
+    feed, case = load(
+        tmp_path,
+        [
+            record(
+                [minute_row("2026-10-15 03:00:00", transport=17, down=10_000)],
+                indicator="1.1.1.1:443",
+                indicator_type="ip:port",
+            )
+        ],
+    )
+    found = evidence(feed, case, live=live)
+    decision = decide(found, feed.domain_indicators)
+    retained = HistoryContext(tmp_path / "none.duckdb", Coverage(frozenset(), frozenset()), {})
+    text = case_digest(found, decision, live, retained).text()
+
+    assert decision.disposition == "explained"
+    assert "E1 explains 1 kind(s) of contact: UDP contact" in text
+    assert "item(s)" not in text
+
+
+def test_kinds_are_listed_once_each_with_their_days_summed(tmp_path: Path) -> None:
+    text = _daily(tmp_path, ports=(8443,))
+
+    assert "The host's contact with the flagged address: 2 kinds of contact, 9 minute(s)" in text
+    (kinds,) = [line for line in text.splitlines() if "the kinds of contact:" in line]
+    assert kinds.count("443/TCP") == 2
+    assert "1.1.1.1 443/TCP, SNI lure.example.com, 9 minute(s), 30.0 KB received" in kinds
+    assert "1.1.1.1 8443/TCP, SNI lure.example.com, 1 minute(s), 10.0 KB received" in kinds
+    assert "named the flagged domain on 2 kind(s) of contact" in text

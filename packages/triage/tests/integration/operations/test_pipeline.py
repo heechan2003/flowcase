@@ -310,6 +310,7 @@ def test_publication_counts_and_records_what_the_support_gate_left_out() -> None
 
     assert report.supported_client_rows + report.out_of_scope_client_rows == report.client_rows
     assert "out-of-scope client rows" in report.render()
+    assert "query footprint: 6 queries, 1000 rows read, 20,000 bytes read" in report.render()
     assert connection.execute(
         """
         SELECT supported_client_rows, out_of_scope_client_rows, population_definition_version

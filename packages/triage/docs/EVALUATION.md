@@ -181,16 +181,19 @@ scores against.
 
 Two things about it are worth knowing before reading a result:
 
-- **Day D is reconstructed from the retained grains by default.** That costs no live query and works long after
-  the roughly fifteen days of source detail have expired, but no DNS observation is retained, so the DNS family
-  produces nothing and any figure for it is a floor. `--source` re-derives the day in full.
+- **Day D is reconstructed from the retained grains by default.** That costs no live query and works after the
+  source's detail has expired (the original source kept about fifteen days; here a day stays while it is
+  loaded, unless `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` sets a retention), but no DNS observation is retained,
+  so the DNS family produces nothing and any figure for it is a floor. `--source` re-derives the day in full.
 - **§5 is measured from the engines themselves**, through a write-only recorder at each decision site
   (`src/network_behaviour/instrumentation.py`). A harness that recomputed the conditions would keep scoring the
   old rule after the engine changed.
 
 ## Reporting
 
-A bundle is a dated Markdown file in `CASE_STUDY.md`, evaluations named for the change. It states the five sections, the
+A bundle is a dated Markdown file named for the change, written to `docs/evaluations/` (`--output` moves
+it). That directory is git-ignored, because a bundle measures a real day; the repository's
+`docs/CASE_STUDY.md` reports what the bundles found. A bundle states the five sections, the
 data range measured, what was not measured and why, and a plain verdict: does this change improve the output,
 leave it unchanged, or degrade it in exchange for something named.
 

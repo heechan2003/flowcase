@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from ioc_report.knowledge import (
     FAMILIES,
     REPORT_FAMILIES,
@@ -96,3 +98,18 @@ def test_only_a_listing_whose_publisher_names_cves_carries_advisories() -> None:
 
     assert LISTINGS["threatfox"].advisories == ()
     assert LISTINGS["amazon-php2shell"].advisories
+
+
+def test_a_synthetic_world_reads_test_as_a_public_suffix_as_the_publisher_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NETWORK_BEHAVIOUR_SYNTHETIC", raising=False)
+    assert tenant_domain("cdn.lure.test") is None
+
+    monkeypatch.setenv("NETWORK_BEHAVIOUR_SYNTHETIC", "1")
+    assert tenant_domain("cdn.lure.test") == tenant_domain("lure.test") == "lure.test"
+    assert not name_facts("cdn.lure.test").platform_tenant
+    # Real names read the same either way.
+    assert tenant_domain("abc.github.io") == "abc.github.io"
+    assert name_facts("abc.github.io").platform_tenant
+    assert tenant_domain("www.example.com") == "example.com"

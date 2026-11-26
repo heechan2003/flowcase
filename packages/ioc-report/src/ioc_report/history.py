@@ -25,8 +25,9 @@ from ioc_report.knowledge import ECH_OUTER_NAMES, SOFTWARE_SIGNALS, clean
 PRIOR_WINDOW_DAYS = 90
 
 # The triage repo's scored population (`behavioural-support-v3`): addresses with at least one
-# service row. 60-75% of observed addresses carry only unaddressed rows (CASE_STUDY §2, §3), so a
-# campus quantile over every `history.client_day` row is mostly zeros and moves with their count.
+# service row. On the original source 60-75% of observed addresses carried only unaddressed rows
+# (CASE_STUDY §2, §3), so a campus quantile over every `history.client_day` row was mostly zeros and
+# moved with their count.
 SCORED_MIN_SERVICES = 1
 
 # The detector generation that corrected what a family scored (CASE_STUDY, superseded values):

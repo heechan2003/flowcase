@@ -32,7 +32,6 @@ from network_behaviour.baselines.statistics import (
 from network_behaviour.population import CURRENT_SUPPORT_DEFINITION, SupportDefinition
 from network_behaviour.time import UtcDay
 
-_METRIC_SQL = ", ".join(CLIENT_METRICS)
 # Sorts above every finite novelty statistic, so never-contacted destinations share the top
 # of the novelty ordering rather than being spread across it by an arbitrary large number.
 _NEVER_CONTACTED = float("inf")

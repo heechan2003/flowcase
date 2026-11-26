@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import tldextract
 from network_behaviour.normalization.service import registered_domain
+from network_behaviour.synthetic import SYNTHETIC_PUBLIC_SUFFIXES, synthetic_world
 
 TCP = 6
 UDP = 17
@@ -22,10 +23,22 @@ UDP = 17
 # public suffix list's private section switched on. A name under a private suffix (github.io,
 # workers.dev, duckdns.org, ...) belongs to one tenant of a shared platform, while retained
 # history hashes it under the platform's registered domain, so its prevalence there describes the
-# platform, not the tenant.
+# platform, not the tenant. In a synthetic world `test` is a public suffix here too, as it is for
+# the publisher, so `a.lure.test` and `b.lure.test` share a tenant.
 _PRIVATE_AWARE = tldextract.TLDExtract(
     cache_dir=None, suffix_list_urls=(), include_psl_private_domains=True
 )
+_PRIVATE_AWARE_SYNTHETIC = tldextract.TLDExtract(
+    cache_dir=None,
+    suffix_list_urls=(),
+    include_psl_private_domains=True,
+    extra_suffixes=SYNTHETIC_PUBLIC_SUFFIXES,
+)
+
+
+def _private_aware(name: str) -> tldextract.tldextract.ExtractResult:
+    return (_PRIVATE_AWARE_SYNTHETIC if synthetic_world() else _PRIVATE_AWARE)(name)
+
 
 # Encrypted Client Hello: the outer SNI names the CDN, and the site actually visited is hidden.
 # Only browsers send ECH (https://developers.cloudflare.com/ssl/edge-certificates/ech/).
@@ -525,7 +538,7 @@ def service_for(name: str) -> ServiceProfile | None:
 
 def tenant_domain(name: str) -> str | None:
     """The registrable name with the private suffix section on: `abc.github.io` stays itself."""
-    result = _PRIVATE_AWARE(clean(name))
+    result = _private_aware(clean(name))
     if not result.suffix or not result.domain:
         return None
     return f"{result.domain}.{result.suffix}"
@@ -571,7 +584,7 @@ def name_facts(name: str) -> NameFacts:
         name=cleaned,
         registered=registered,
         tenant=tenant_domain(cleaned),
-        platform_tenant=bool(_PRIVATE_AWARE(cleaned).is_private),
+        platform_tenant=bool(_private_aware(cleaned).is_private),
         category=category,
         label_length=len(label),
         digit_ratio=sum(ch.isdigit() for ch in label) / len(label) if label else 0.0,

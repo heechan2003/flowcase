@@ -246,15 +246,6 @@ def beacon_candidates(
 
 
 @dataclass(frozen=True, slots=True)
-class BeaconSurfacing:
-    """One injected host under one profile, scored against the beacon funnel alone."""
-
-    client_ip: str
-    profile_name: str
-    surfaced: bool
-
-
-@dataclass(frozen=True, slots=True)
 class BeaconEnvelopeCell:
     period_minutes: int
     jitter_minutes: int

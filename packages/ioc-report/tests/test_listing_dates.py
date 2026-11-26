@@ -1,6 +1,6 @@
 """ThreatFox's dates are not in the feed: its threatfox.first_seen/last_seen are the matched flow's
-start and finish (IOC_Processor `agent/evidence.py`). The report says so unless the hand-filled
-metadata file gives the real ones."""
+start and finish (`match.py`, as IOC_Processor's `agent/evidence.py` before it). The report says
+so unless the metadata file `ioc-match` writes gives the real ones."""
 
 from __future__ import annotations
 

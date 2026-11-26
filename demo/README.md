@@ -4,13 +4,13 @@ One command runs the whole pipeline on a synthetic network and checks every plan
 
 ```shell
 make sync
-make demo        # about 10 minutes; everything it writes goes to demo/work/ (git-ignored)
+make demo        # about 4 minutes; everything it writes goes to demo/work/ (git-ignored)
 ```
 
 `demo/run.py --from STEP` resumes at a step (`generate`, `load`, `triage`, `match`, `report`, `check`)
 over the files an earlier run left, and `--sample` refreshes `sample-output/` after a passing check. On
-an 8-core laptop: generate under 30 s (2.15 M connections), load 1-2 min, triage 7-11 min (35 days,
-slower as history grows), match and report a few seconds.
+an 8-core laptop on 2026-11-26 it took 4 min 20 s: generate 15 s (2.15 M connections), load 75 s, triage
+2 min 50 s (35 days, 3-7 s a day, slower as history grows), match and report a few seconds.
 
 ### The small world
 
@@ -21,9 +21,9 @@ make demo-small  # the same planted cases on 230 hosts instead of 400; writes de
 It keeps the first 45 hosts of each profile plus every scenario host (`--hosts-per-profile`). Each
 host's traffic is seeded by its address and the day alone, so the small world is an exact subset of
 the full one: the planted cases are the same traffic, checked against the same `expected.json` with
-one allowance (below). Every peer band still has at least 40 hosts. CI runs it on every pull request and every push to
-`main` (`.github/workflows/ci.yml`, job `demo-small`). On the same laptop it took 5 minutes on 2026-11-26 (1.37 M connections; load 45 s, triage
-4 min) against 9 for the full world.
+one allowance (below). Every peer band still has at least 40 hosts. CI runs it on every pull request
+and every push to `main` (`.github/workflows/ci.yml`, job `demo-small`). On the same laptop it took
+2.5 minutes on 2026-11-26 (1.37 M connections; load 45 s, triage 1.5 min).
 
 Fewer peers move peer percentiles, so a rule that rests on one near the tail can come out either way.
 `expected.json` lists those under `_small_world_optional`: today only the tunnel visitor's K3, whose
@@ -44,19 +44,21 @@ requires that case's disposition and its other rules.
 No model runs and nothing leaves the machine. Every page holds code's own text. The RDAP cache holds
 the registration dates of the synthetic names, and its bootstrap sends every other lookup to a closed
 loopback port, so a real name (bore.pub) is reported as a failed lookup with an unknown age, which
-changes no decision.
+changes no decision. `run.py` stamps the cache afresh before the match and report steps, so its
+bootstrap never expires into a real lookup, however long after the first run a `--from` run comes.
 
 ## The world
 
-`generate.py` is seeded, and a given seed and end day give the same bytes. The end day defaults to the
-latest day the publisher may process (day D runs no earlier than D+1 08:00 UTC).
+`generate.py` is seeded, and a given seed and end day give the same bytes. The end day is fixed at
+2026-11-24 (`DEMO_END`), so every run builds the same world and code decides the same, whatever day it
+runs; `--end` moves it.
 
 - **Hosts:** 400 local hosts in `10.30.0.0/16`, in five profiles: office (120), lab (80), student (100),
   device (50) and server (50). Each profile sits inside one peer band of bytes and destinations, so every
   occupied band has at least 40 hosts (`bands.min_cohort`).
 - **Servers:** documentation ranges and `198.18.0.0/15`, under `.test` names, on synthetic networks with
-  private-use AS numbers. The pipeline counts these as public only with `NETWORK_BEHAVIOUR_SYNTHETIC=1`,
-  which every step sets. Three public names stay because the rules know them: `bore.pub` (a tunnelling
+  documentation AS numbers (RFC 5398) and one private-use number (64512). The pipeline counts these as
+  public only with `NETWORK_BEHAVIOUR_SYNTHETIC=1`, which every step sets. Three public names stay because the rules know them: `bore.pub` (a tunnelling
   service), `cloudflare-ech.com` (the ECH outer name), and AS13335, which labels one documentation block
   as a network that shares its addresses by design.
 - **Every minute:** each host holds a push connection open all day, so every day has activity in all
@@ -106,7 +108,8 @@ code, since the demo runs without a model. A run with a model changes only the P
 a decision.
 
 `haiku-case-beacon.pdf` is the beacon case again, with the paragraphs written by
-`anthropic/claude-haiku-5.5` through OpenRouter (2026-11-26, one attempt, $0.0025):
+`anthropic/claude-haiku-5.5` through OpenRouter (2026-11-27, two attempts, $0.0018; code's checks
+sent the first reply back):
 
 ```shell
 cd packages/ioc-report
@@ -116,4 +119,4 @@ uv run ioc-case-report ../../demo/work/report/demo.json --case 2 --budget 0.05
 Compare it with `case-beacon.pdf`: the title, the facts line, the headings, the decision and the limits
 are code's in both. `haiku-case-beacon.json` is its audit file. `what_the_writer_read` is the whole
 brief the model was sent, with the host's address replaced by `HOST`, and `problems` lists what code's
-checks found in the reply (nothing, here). `--sample` leaves both files alone.
+checks found in the reply that was kept (nothing, here). `--sample` leaves both files alone.

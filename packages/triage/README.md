@@ -8,18 +8,20 @@ Ordering is investigation sequencing. It is not a risk score, a threat verdict, 
 ## The evidence stream
 
 `network-behaviour run-day` publishes one artifact: a complete, immutable, byte-stable record of every eligible
-episode, uncapped by design and ranging from 1,510 to 19,676 episodes a day.
+episode, uncapped by design. On the original source it ranged from 1,510 to 19,676 episodes a day.
 
 ## Setup
 
-This package is a member of the repository's uv workspace (Python 3.13). From the repository root:
+This package is a member of the repository's uv workspace (Python 3.12 or later; the repository pins 3.13,
+and CI checks both). From the repository root:
 
 ```shell
 make sync
 ```
 
 Copy `.env.example` to `.env` and set mode `0600`. `.env` is git-ignored and process-environment values take
-precedence. The product database defaults to `data/network_behaviour.duckdb`.
+precedence. The product database has no default: `NETWORK_BEHAVIOUR_DUCKDB_PATH` must name it, and
+`.env.example` sets `data/network_behaviour.duckdb`.
 
 ## Load Zeek logs
 
@@ -28,7 +30,7 @@ logs, JSON or TSV, plain or gzipped, one UTC day at a time:
 
 ```shell
 network-behaviour load-zeek --day YYYY-MM-DD --logs /var/log/zeek --local-nets 10.0.0.0/8
-network-behaviour source-check --day YYYY-MM-DD    # coverage, grain, duplicates, reconciliation
+network-behaviour source-check --day YYYY-MM-DD    # metadata, coverage and grain
 ```
 
 The source file defaults to `data/source.duckdb` (`NETWORK_BEHAVIOUR_SOURCE_PATH`). Server ASNs come from an
@@ -65,13 +67,13 @@ Rerunning an already-published day reads no source data and emits identical byte
   "episode_start": "…", "episode_end": "…", "evidence": [ … ]}}
 ```
 
-- **`evidence_tier`** — `E1`, `E2` or `E3`. A coarse evidence bucket, not a priority. E1 currently holds about
-  30% of the stream, so treat it as "has corroborated strong evidence", not "is urgent".
+- **`evidence_tier`** — `E1`, `E2` or `E3`. A coarse evidence bucket, not a priority. E1 held about 30% of
+  the stream on the original source, so treat it as "has corroborated strong evidence", not "is urgent".
 - **`sequence`** — position in the file, contiguous from 1. Exists so you can verify nothing was dropped. **Not
   a priority.**
 - **`tie_group`** — episodes with the same value are **indistinguishable on the evidence**. A large tie group
   means the ordering inside it carries no information. This is reported rather than hidden because roughly 90%
-  of adjacent within-tier pairs are tied.
+  of adjacent within-tier pairs were tied on the original source.
 - **`service_domain`** — present only where the service was derived from a domain and that service affected the
   decision. Null for ASN- and IP-based services, which have no domain.
 
@@ -94,44 +96,48 @@ network-behaviour restore --input  /separate-storage/network_behaviour.duckdb \
                           --output data/restored-network_behaviour.duckdb
 ```
 
-Source checks are read-only, UTC-bounded and aggregate-only. Backfill and replay are chronological and stop on
-the first failed day. Keep verified backups off the 60 GiB writable volume. Restore refuses to overwrite an
-existing output.
+Source checks are read-only: the coverage query is UTC-bounded and aggregate-only, and the metadata query reads
+`information_schema` alone. Backfill and replay are chronological and stop on the first failed day. Keep
+verified backups off the 60 GiB writable volume. Backup and restore both refuse to overwrite an existing
+output.
 
 ## Known limitations
 
 Read the repository's `docs/CASE_STUDY.md` before trusting any number this system produces. The ones that most affect
 interpretation:
 
-- **The population is address space, not devices.** Every observed address carries an unaddressed
-  `Web Browsing` row (no server address, port or domain) in nearly every minute of the day, and most addresses
-  carry nothing else. What those rows count is not documented. Since `behavioural-support-v3` an address with
-  no service row is out of scope for the transfer and fanout families and their peer pools — about 7,000 a day,
-  reported in each run's census — and DNS still scores the addresses that sent a query.
-- **`flow_count` is zero on exactly those unaddressed rows**, about half the source, so any gate resting on flow
-  counts is carried by its other arm.
+- **The population is address space, not devices.** Since `behavioural-support-v3` an address with no service
+  row is out of scope for the transfer and fanout families and their peer pools, and each run's census reports
+  how many; DNS still scores the addresses that sent a query. On the original source that left out about 7,000
+  addresses a day: every observed address carried an unaddressed `Web Browsing` row (no server address, port
+  or domain) in nearly every minute, most carried nothing else, and what those rows counted was not
+  documented. Zeek reports connections, so a Zeek-loaded source has no unaddressed rows
+  (`../../docs/SOURCE_CONTRACT.md`).
+- **On the original source, `flow_count` was zero on exactly those unaddressed rows**, about half the source,
+  so any gate resting on flow counts was carried by its other arm. Here it counts the connections that start
+  in the minute.
 - **The original probe kept source detail for about fifteen days.** A Zeek-loaded source keeps a day until it
   is reloaded, so older days can be re-derived; `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` reproduces the limit.
 - **`client_ip` is not a durable host identity.** No source field offers better continuity.
-- **Direction is visible only in long flows.** The probe always orients the campus side as the client and
-  `server_port` is always the remote side's port, so `activity_1m` cannot say who opened a
-  connection. `long_flows.initiator` can, for long flows only.
+- **Direction is visible only in long flows.** The original probe oriented the campus side as the client,
+  with `server_port` the remote side's port, and the Zeek loader keeps that, so `activity_1m` cannot say who
+  opened a connection. `long_flows.initiator` can, for long flows only.
 - **Sessions the remote side opened are scored as the host's own.** No detector reads direction. Measured
-  2026-10-23 over 390,056 published episodes (`CASE_STUDY` §7): 0.9% sit on host-days where remote-opened
+  2026-10-23 on the original source, over 390,056 published episodes (`CASE_STUDY` §7): 0.9% sit on host-days where remote-opened
   long flows carry most of the host's long-flow upload, rising to 7.7% of persistence episodes.
 - **Data-quality confidence is constant.** No run sets the source-quality input except the DNS coverage check,
   and that one only switches DNS off (`CASE_STUDY` §12), so the data-quality term of the ordering key never
   separates two episodes.
-- **Most of the ordering inside a tier is a hash.** Roughly 90% of adjacent within-tier pairs tie on every
-  substantive key (`docs/generated/ordering.md`); `tie_group` says so rather than hiding it.
+- **Most of the ordering inside a tier is a hash.** On the original source roughly 90% of adjacent
+  within-tier pairs tied on every substantive key (`docs/generated/ordering.md`); `tie_group` says so rather than hiding it.
 - **Persistence rarity is uncalibrated.** It is `100 × (1 − prevalence)` (`detectors/engine.py`,
   `_rarity_strength`), not a tail probability like relationship rarity.
-- **The drift tolerances have thin legitimate margins.** The scored population moved 30.87% against the same
-  weekday around the 2026-10-05 public holiday, against a tolerance of 0.35. The DNS population moved 70% and 43%
+- **The drift tolerances have thin legitimate margins.** On the original source the scored population moved
+  30.87% against the same weekday around the 2026-10-05 public holiday, against a tolerance of 0.35. The DNS population moved 70% and 43%
   on 2026-07-23 and 07-30 for reasons not established, which the 0.35 DNS tolerance would treat as a coverage
   failure (`config/parameters.toml`, `drift.*`).
-- **DNS covers about 308 clients a day** (`CASE_STUDY` §9), the addresses that send a query, so the DNS family
-  is context for few hosts.
+- **DNS scores only the addresses that send a query.** On the original source that was about 308 clients a
+  day (`CASE_STUDY` §9), so the DNS family was context for few hosts.
 - **The evidence cannot support threat conclusions.** No payload, TCP state, process, user, asset inventory or
   DNS query names. The output orders investigation; it does not identify compromise.
 
@@ -145,7 +151,7 @@ interpretation:
 | `docs/EVALUATION.md` | What must be measured before a behaviour change ships |
 | `docs/generated/` | Emitted from code. Never hand-edited |
 | `docs/runbooks/` | Operator procedures: publish, backfill/replay, backup/restore |
-| `scripts/` | Read-only helpers, doc emitters and `evaluate.py`, the evidence-bundle harness |
+| `scripts/` | Helpers, doc emitters and `evaluate.py`, the evidence-bundle harness. Most only read: `publish_available_days.py` publishes days, `replay_day.sh` and `evaluate.py` write isolated databases (`evaluate.py bundle` also writes its bundle), and the emitters write `docs/generated/` |
 | `CLAUDE.md` | Start here if you are an agent |
 
 ## Development

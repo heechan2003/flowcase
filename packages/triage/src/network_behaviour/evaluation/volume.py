@@ -18,6 +18,7 @@ from datetime import date
 import duckdb
 
 from network_behaviour.publication import StorageGuard
+from network_behaviour.source.client import bytes_read
 from network_behaviour.time import UtcDay
 
 RETENTION_DAYS = 365
@@ -61,7 +62,8 @@ class DayVolume:
         return (
             f"  {self.day} {self.weekday}  episodes {self.episodes:>7,}  hosts {self.hosts:>6,}  "
             f"tie groups {self.tie_groups:>6,}  E1/E2/E3 {self.e1:>6,}/{self.e2:>6,}/{self.e3:>6,}"
-            f"  queries {self.query_count:>3}  read {self.read_bytes / 1e9:>6.2f}GB  {runtime}"
+            f"  queries {self.query_count:>3}  {self.read_rows:>13,} rows read"
+            f"{bytes_read(self.read_bytes, unit='GB')}  {runtime}"
         )
 
 
@@ -139,8 +141,8 @@ class VolumeReport:
                 f"episodes per day: {min(episodes):,} to {max(episodes):,}",
                 f"queued hosts per day: {min(hosts):,} to {max(hosts):,}",
                 f"query footprint: {sum(day.query_count for day in self.days):,} queries, "
-                f"{sum(day.read_rows for day in self.days):,} rows, "
-                f"{sum(day.read_bytes for day in self.days) / 1e9:.2f} GB read",
+                f"{sum(day.read_rows for day in self.days):,} rows read"
+                f"{bytes_read(sum(day.read_bytes for day in self.days), unit='GB')}",
             ]
         if self.growth is not None:
             lines += ["", self.growth.render()]

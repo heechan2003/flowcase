@@ -1,5 +1,6 @@
 """Generate the demo's synthetic network: Zeek logs, an ip2asn table, a ThreatFox export and an RDAP
-cache, all seeded and byte-stable for a given seed and end day.
+cache, all seeded and byte-stable for a given seed and end day. The end day is fixed (`DEMO_END`),
+so every run builds the same world and code decides the same, whatever day it runs.
 
 Nothing here is real traffic. Local hosts are `10.30.0.0/16`; servers sit in the documentation
 ranges (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) and the benchmarking range
@@ -33,6 +34,7 @@ import hashlib
 import json
 import math
 import random
+import shutil
 import sys
 from collections.abc import Iterator
 from concurrent.futures import ProcessPoolExecutor
@@ -42,9 +44,10 @@ from pathlib import Path
 from typing import Any
 
 SEED = 20261125
+DEMO_END = date(2026, 11, 24)
+"""The last day of the world, unless `--end` says otherwise."""
 DAYS = 35
 SCENARIO_DAYS = 3
-DAY_SECONDS = 86_400
 MIN_COHORT = 40
 """`bands.min_cohort` in triage's parameters: a peer band with fewer hosts is not compared."""
 
@@ -53,8 +56,9 @@ PUSH = ("198.18.0.10", "push.notify-hub.test")
 
 # --- servers --------------------------------------------------------------------------------------
 
-# ip2asn rows: (first, last, asn, country, organization). Synthetic networks use the private-use
-# ASNs; AS13335 labels one documentation block so that E4's shared-network check has a real entry
+# ip2asn rows: (first, last, asn, country, organization). Synthetic networks use the documentation
+# AS numbers (64496-64511, RFC 5398) and one private-use number (64512, RFC 6996); AS13335 labels
+# one documentation block so that E4's shared-network check has a real entry
 # to read (`ioc_report.knowledge.SHARED_NETWORKS`).
 NETWORKS = (
     ("192.0.2.0", "192.0.2.255", 64496, "AU", "Example Resolver Network"),
@@ -839,9 +843,19 @@ def write_rdap_cache(folder: Path, end: date, now: datetime) -> None:
     )
 
 
-def default_end(now: datetime) -> date:
-    """The latest day the publisher may process: day D runs no earlier than D+1 08:00 UTC."""
-    return (now - timedelta(hours=8)).date() - timedelta(days=1)
+def remove_other_days(logs: Path, days: list[date]) -> None:
+    """Delete the day folders an earlier world left outside this one: the loader reads day D+1's
+    folder for day D, so a stale folder would join the world."""
+    if not logs.is_dir():
+        return
+    keep = {day.isoformat() for day in days}
+    for folder in logs.iterdir():
+        try:
+            date.fromisoformat(folder.name)
+        except ValueError:
+            continue
+        if folder.is_dir() and folder.name not in keep:
+            shutil.rmtree(folder)
 
 
 def all_days(end: date, days: int) -> Iterator[date]:
@@ -852,7 +866,9 @@ def all_days(end: date, days: int) -> Iterator[date]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, default=Path("demo/work"))
-    parser.add_argument("--end", type=date.fromisoformat, help="last day (default: yesterday, UTC)")
+    parser.add_argument(
+        "--end", type=date.fromisoformat, default=DEMO_END, help=f"last day (default: {DEMO_END})"
+    )
     parser.add_argument("--days", type=int, default=DAYS)
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument(
@@ -868,10 +884,11 @@ def main(argv: list[str] | None = None) -> int:
             f"--days must leave 31 days of history before the {SCENARIO_DAYS} scenario days"
         )
     now = datetime.now(UTC)
-    end = args.end or default_end(now)
+    end: date = args.end
     days = list(all_days(end, args.days))
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
+    remove_other_days(out / "logs", days)
     per_profile = args.hosts_per_profile
     hosts = select_hosts(per_profile)
     jobs = [(out / "logs", day, index, len(days), per_profile) for index, day in enumerate(days)]

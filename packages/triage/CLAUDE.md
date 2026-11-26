@@ -59,13 +59,14 @@ raw identifiers. Fixtures are synthetic: campus hosts use `10.0.0.0/8` or docume
 ## Source safety
 
 Any live source access follows `sql/CLAUDE.md`.
-Read-only credentials, parameterized SQL, typed half-open UTC bounds, smallest sufficient aggregate. No
-unbounded scans, no `SELECT *`, no one-query-per-client, no printing of SQL, credentials, raw identifiers,
-domains, endpoints or source rows. Never select subscriber profiles, IDs or tags, or mobile identifiers —
+A read-only connection, parameterized SQL, typed half-open UTC bounds, smallest sufficient aggregate. No
+unbounded scans, no `SELECT *`, no one-query-per-client, no printing of SQL, raw identifiers, domains,
+endpoints or source rows. Never select subscriber profiles, IDs or tags, or mobile identifiers —
 `src/network_behaviour/source/sql.py` blocks these by regex and the guard stays even though the IDs and tags
 add nothing and the mobile columns are empty (`CASE_STUDY` §5, §6). Report the query footprint of any live work.
 
-`.env` stays untracked at mode `0600`; `.env.example` keeps a blank password.
+`.env` stays untracked at mode `0600`; the CLI refuses one that group or others can read. The source is a
+local DuckDB file, so there are no source credentials.
 
 ## Working method
 
@@ -89,7 +90,7 @@ Helper scripts:
 | Script | Does |
 |---|---|
 | `stream_stats.py` | Composition of a published stream; `--ties` reports ordering that carries no information |
-| `evaluate.py` | The `docs/EVALUATION.md` bundle: `bundle`, `volume`, `seed`. Reads day D from retained history unless `--source` |
+| `evaluate.py` | The `docs/EVALUATION.md` bundle: `bundle`, `volume`, `seed`, and `shadow` for the one behavioural profile scored apart from the publisher. Reads day D from retained history unless `--source` |
 | `generate_detectors_doc.py` | Emit `docs/generated/detectors.md`; `--check` in CI |
 | `generate_ordering_doc.py` | Emit `docs/generated/ordering.md` — tier ladder and ordering key; `--check` in CI |
 | `generate_parameters_doc.py` | Emit `docs/generated/parameters.md`; `--check` in CI |

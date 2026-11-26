@@ -8,7 +8,6 @@ Nothing here is a real indicator.
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from collections.abc import Iterator, Mapping
 from datetime import UTC, date, datetime
@@ -20,12 +19,8 @@ import pytest
 from network_behaviour.storage.repository import DuckDbStore, StorageConfig
 
 FIXTURES = Path(__file__).with_name("fixtures")
-MIGRATIONS = Path(
-    os.environ.get(
-        "NETWORK_BEHAVIOUR_MIGRATION_DIR",
-        Path(__file__).resolve().parents[2] / "triage" / "sql" / "migrations",
-    )
-)
+MIGRATIONS = Path(__file__).resolve().parents[2] / "triage" / "sql" / "migrations"
+"""The workspace's own migrations, whatever `NETWORK_BEHAVIOUR_MIGRATION_DIR` says."""
 NORMALIZATION = "service-id-v1/category-id-v1/port-groups-v1/bitmap-288-lsb-v1/tldextract-5.3.1"
 
 
@@ -120,8 +115,7 @@ def write_feed(directory: Path, records: list[Any]) -> Path:
 
 @pytest.fixture
 def store_path(tmp_path: Path) -> Iterator[Path]:
-    if not MIGRATIONS.is_dir():
-        pytest.skip("triage repo migrations not found; set NETWORK_BEHAVIOUR_MIGRATION_DIR")
+    assert MIGRATIONS.is_dir(), f"workspace migrations not found at {MIGRATIONS}"
     path = tmp_path / "network_behaviour.duckdb"
     with DuckDbStore(StorageConfig(path, MIGRATIONS)):
         pass

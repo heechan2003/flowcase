@@ -42,7 +42,7 @@ from network_behaviour.publication import (
     normalization_bundle_version,
 )
 from network_behaviour.ranking import COMPATIBLE_BEHAVIOUR_VERSION_PAIRS, RankingPolicy
-from network_behaviour.source.client import ReadOnlyQueryRunner
+from network_behaviour.source.client import ReadOnlyQueryRunner, bytes_read
 from network_behaviour.source.contracts import run_source_contract_check
 from network_behaviour.source.day import (
     COMPATIBLE_QUERY_VERSIONS_JSON,
@@ -104,8 +104,8 @@ class DayRunReport:
                 f"out-of-scope client rows: {self.out_of_scope_client_rows}",
                 f"service rows: {self.service_rows}",
                 f"candidate rows: {self.candidate_rows}",
-                f"query footprint: {self.query_count} queries, {self.source_read_rows} rows read, "
-                f"{self.source_read_bytes} bytes read",
+                f"query footprint: {self.query_count} queries, {self.source_read_rows} rows read"
+                f"{bytes_read(self.source_read_bytes)}",
                 "projected storage bytes: "
                 f"{self.storage_bytes if self.storage_bytes is not None else 'not_measured'}",
             )

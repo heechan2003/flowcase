@@ -14,7 +14,6 @@ import duckdb
 import pytest
 
 DAY = date(2026, 7, 10)
-LOCAL = "10.0.0.0/8"
 
 
 def at(clock: str, day: date = DAY) -> float:

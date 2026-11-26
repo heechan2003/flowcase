@@ -29,5 +29,6 @@ This file applies to `sql/` and overrides broader guidance only where it is more
 
 ## Verification
 
-Any SQL change requires a parser/static check where available, a synthetic integration test, and an explicit
-statement of whether an opt-in live contract query was run.
+Any SQL change requires `validate_sql` to pass (`tests/unit/source/test_sql.py` loads every file in
+`sql/source/`) and a synthetic integration test against a loaded DuckDB source. There is no live contract
+test to opt into: the source is the DuckDB file `load-zeek` writes.

@@ -21,6 +21,7 @@ from ioc_report import cli
 from ioc_report.case_report import (
     LIMITS,
     CaseReportError,
+    _plain,
     brief,
     code_text,
     file_stem,
@@ -272,7 +273,9 @@ def test_the_brief_keeps_the_facts_the_lead_needs(
     assert "payload_delivery" not in found.text() and "payload delivery" in found.text()
     # The brief keeps UTC alone, whatever zone the run showed beside it.
     assert "Tokyo" not in found.text() and "03:06 UTC" in found.text()
-    assert "kind(s) of contact" not in found.text() and "1 distinct connection(s)" in found.text()
+    assert "kind(s) of contact" not in found.text() and (
+        "1 address, port and name combination(s)" in found.text()
+    )
     assert any("named the flagged domain" in line for line in found.outcome)
     assert found.outcome[0].startswith("Outcome: review.")
     assert found.next_steps[0].startswith("Identify the device")
@@ -369,6 +372,16 @@ def test_monitoring_is_named_in_plain_words(tmp_path: Path) -> None:
         for line in found.outcome
     )
     assert not any("triage" in step.lower() for step in found.next_steps)
+
+
+def test_the_digest_counts_read_plainly_in_the_brief() -> None:
+    """A rule's count is kinds of contact or findings, never "items", and loses its rule code."""
+    assert _plain("E1 explains 1 kind(s) of contact: UDP contact.") == (
+        "An ordinary reason covers 1 address, port and name combination(s): UDP contact."
+    )
+    assert _plain("K4 on 3 finding(s); the first: a scheduled contact.") == (
+        "3 finding(s); the first: a scheduled contact."
+    )
 
 
 def test_every_gap_is_named_in_plain_words(tmp_path: Path) -> None:
@@ -678,6 +691,7 @@ def test_what_the_checks_allow_in_ordinary_words() -> None:
     assert method_words("Started from the user profile; the file's name, size and hash.") == []
     assert method_words("The rules kept it.") == ["rules"]
     assert method_words("By code, E3 explains it.") == ["E3", "by code"]
+    assert method_words("Zeek's logs show the contact.") == ["zeek"]
     assert report_problems(GOOD) == []
     assert report_problems({"why": "We found no ordinary reason for the contact."}) == []
     assert report_problems({"why": "The name was not in routine campus use."}) == []

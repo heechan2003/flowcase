@@ -26,7 +26,7 @@ from ioc_report.knowledge import (
     other_list_background,
     service_for,
 )
-from ioc_report.live import ContextRow, LiveContext
+from ioc_report.live import ContextRow, LiveContext, after_days, after_rows
 from ioc_report.rules import (
     ESTABLISHED_MIN_ADDRESSES,
     ESTABLISHED_MIN_DAYS,
@@ -349,35 +349,6 @@ def ledger_line(evidence: Evidence, decision: Decision) -> str:
         for rule in sorted(counts)
     ]
     return "; ".join(parts)
-
-
-def ledger_notes(evidence: Evidence, live: LiveContext) -> str:
-    case = evidence.case
-    notes = []
-    sharing = [
-        f"{server} carried up to {s.most_domains} registered domain(s)"
-        + (
-            f", {max(d.campus_clients for d in s.live_days)} campus host(s) on a queried day"
-            if s.live_days
-            else ""
-        )
-        for server, s in evidence.addresses.items()
-    ]
-    notes.extend(sharing)
-    if episodes := evidence.history.same_service_episodes:
-        notes.append(
-            "triage stream also flagged this host's use of "
-            + ", ".join(
-                f"{e.service_domain or 'a contacted site'} ({e.family} {e.tier}, {e.day})"
-                for e in episodes
-            )
-        )
-    if case.other_indicators:
-        notes.append(f"host matched {len(case.other_indicators)} other indicator(s)")
-    later = [c for c in evidence.contacts if c.source == "live" and min(c.days) > case.days[-1]]
-    if later:
-        notes.append(f"still in contact on {_day_list(d for c in later for d in c.days)}")
-    return "; ".join(notes)
 
 
 def _decision(decision: Decision) -> list[str]:
@@ -891,8 +862,7 @@ def after_contact(
     if live.destinations is None:
         return None
     case = evidence.case
-    rows = live.destinations.get(case.source_host, ())
-    return after_view(case, rows, live.destination_days, history.names)
+    return after_view(case, after_rows(live, case), after_days(live, case), history.names)
 
 
 def _after(evidence: Evidence, live: LiveContext, history: HistoryContext) -> list[str]:
@@ -1050,7 +1020,7 @@ def _coverage(
         if expired:
             lines.append(
                 f"[Live source] minute detail for match day(s) {_day_list(expired)} has expired: "
-                "the source keeps about 15 days."
+                f"the source keeps about {live.retention_days} days."
             )
         queried = [day for day in live.days_queried if day in case.days or day == live.latest_day]
         seen = {

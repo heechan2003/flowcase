@@ -119,15 +119,16 @@ class Case:
     """(indicator, ThreatFox malware) of this host's other cases in the feed."""
     matched_first: datetime | None = None
     """The feed's `threatfox.first_seen_utc`, earliest across the case's records. Despite the
-    name it is the matched flow's start, not a ThreatFox date (IOC_Processor `agent/evidence.py`).
+    name it is the matched flow's start, not a ThreatFox date (`match.py`, as IOC_Processor's
+    `agent/evidence.py` before it).
     Shown, never decided on."""
     matched_last: datetime | None = None
     """The feed's `threatfox.last_seen_utc`, latest across the records: the matched flow's
     finish."""
     threatfox_first_seen: datetime | None = None
-    """ThreatFox's own first-seen date, only from the hand-filled metadata file."""
+    """ThreatFox's own first-seen date, only from the metadata file `ioc-match` writes."""
     threatfox_last_seen: datetime | None = None
-    """ThreatFox's own last-seen date, only from the hand-filled metadata file."""
+    """ThreatFox's own last-seen date, only from the metadata file `ioc-match` writes."""
 
     @property
     def is_domain(self) -> bool:
@@ -315,10 +316,11 @@ def load_feeds(paths: Sequence[Path], listing: Listing = THREATFOX) -> Feed:
 
 
 def load_listing_dates(path: Path) -> dict[str, tuple[datetime | None, datetime | None]]:
-    """ThreatFox's own first and last seen dates per indicator, from IOC_Processor's hand-filled
-    `ioc_metadata.json`: `{"indicator": {"threatfox_first_seen": ..., "threatfox_last_seen": ...}}`.
-    The feed carries no ThreatFox dates, so these are the only ones. A missing file means none; a
-    malformed date is unknown, as in the feed."""
+    """ThreatFox's own first and last seen dates per indicator, from the `ioc_metadata.json` that
+    `ioc-match` writes (`match.write_metadata`):
+    `{"indicator": {"threatfox_first_seen": ..., "threatfox_last_seen": ...}}`. The feed carries no
+    ThreatFox dates, so these are the only ones. A missing file means none; a malformed date is
+    unknown, as in the feed."""
     if not path.is_file():
         return {}
     try:

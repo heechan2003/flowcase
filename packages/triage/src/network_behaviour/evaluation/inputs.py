@@ -5,7 +5,9 @@ Two routes, and the choice matters enough that every report states which was use
 **Retained history (default).** `history.client_day` and `history.client_service_day` *are* the
 staged grains — publication persists them unchanged, which is why `replay_day.sh` can seed a
 replay from them. Reading day D back costs no live query, works on any published day, and works
-long after the roughly fifteen days of source detail have expired (`CASE_STUDY` §1).
+after the source's detail has expired (the original source kept about fifteen days, `CASE_STUDY`
+§1; here a day stays while it is loaded, unless `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` sets a
+retention).
 
 Two things it cannot return, both stated in `HistoryInputs.caveats`:
 
@@ -37,7 +39,7 @@ from network_behaviour.aggregation import (
 )
 from network_behaviour.detectors.dns import DnsDailyObservation
 from network_behaviour.operations.pipeline import SourceDayInputProvider
-from network_behaviour.source.client import ReadOnlyQueryRunner
+from network_behaviour.source.client import ReadOnlyQueryRunner, bytes_read
 from network_behaviour.time import UtcDay
 
 
@@ -81,8 +83,8 @@ class DayInputs:
             f"staged: {len(self.staged.client_rows):,} client rows, "
             f"{len(self.staged.service_rows):,} client-service rows, "
             f"{len(self.dns):,} DNS observations",
-            f"live query footprint: {self.query_count} queries, {self.read_rows:,} rows read, "
-            f"{self.read_bytes:,} bytes read",
+            f"live query footprint: {self.query_count} queries, {self.read_rows:,} rows read"
+            f"{bytes_read(self.read_bytes)}",
         ]
         lines.extend(f"caveat: {item}" for item in self.caveats)
         return "\n".join(lines)

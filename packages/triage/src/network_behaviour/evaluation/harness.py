@@ -116,12 +116,3 @@ def restrict_to_clients(clients: frozenset[str]) -> StagedTransform:
         )
 
     return transform
-
-
-def compose(*transforms: StagedTransform) -> StagedTransform:
-    def transform(staged: StagedDay) -> StagedDay:
-        for step in transforms:
-            staged = step(staged)
-        return staged
-
-    return transform

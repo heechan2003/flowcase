@@ -28,7 +28,7 @@ check-scripts:
 check-leaks:
 	$(VENV)/python scripts/check_leaks.py
 
-# The whole pipeline on the synthetic network, checked against demo/expected.json (about 10 minutes).
+# The whole pipeline on the synthetic network, checked against demo/expected.json (about 4 minutes).
 demo:
 	$(VENV)/python demo/run.py
 

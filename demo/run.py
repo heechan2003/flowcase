@@ -22,7 +22,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -79,7 +79,6 @@ def environment(work: Path) -> dict[str, str]:
         "NETWORK_BEHAVIOUR_LOCK_PATH": here(work / "store.duckdb.lock"),
         "NETWORK_BEHAVIOUR_MIGRATION_DIR": here(TRIAGE / "sql" / "migrations"),
         "NETWORK_BEHAVIOUR_SQL_DIR": here(TRIAGE / "sql" / "source"),
-        "NETWORK_BEHAVIOUR_RUN_DIR": here(work / "runs"),
         "IOC_METADATA_PATH": here(work / "ioc_metadata.json"),
         "NAME_LOOKUP": "rdap",
         "RDAP_CACHE_DIR": here(work / "rdap"),
@@ -204,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the demo end to end and check it.")
     parser.add_argument("--work", type=Path, default=DEMO / "work")
     parser.add_argument("--from", dest="start", choices=STEPS, default="generate")
-    parser.add_argument("--end", help="last generated day (default: yesterday, UTC)")
+    parser.add_argument("--end", help=f"last generated day (default: {generate.DEMO_END})")
     parser.add_argument("--jobs", type=int, default=4)
     parser.add_argument(
         "--hosts-per-profile",
@@ -271,6 +270,10 @@ def main(argv: list[str] | None = None) -> int:
             env,
             logs / "triage.log",
         )
+    if "match" in steps or "report" in steps:
+        # The cache's bootstrap expires a week after it is written. Stamped afresh, it keeps a late
+        # `--from match|report` run offline, as the first run was.
+        generate.write_rdap_cache(work / "rdap", date.fromisoformat(last), datetime.now(UTC))
     if "match" in steps:
         (work / "ioc_metadata.json").unlink(missing_ok=True)
         run(

@@ -31,7 +31,7 @@ all four tables, in one transaction.
 
 ## Loader version
 
-The mapping below is `zeek-loader-v2` (`LOADER_VERSION` in `loader.py`). Each load records, per day, the
+The mapping below is `zeek-loader-v3` (`LOADER_VERSION` in `loader.py`). Each load records, per day, the
 version and the locality basis (the `--local-nets` ranges, or `zeek-flags`) in `zeek.loaded_day`, beside
 the four tables. No reader queries that schema, and the contract check lists only `flow`, so a mapping
 change never strands a published day; the record says which mapping built the rows a day was read from.
@@ -40,11 +40,13 @@ change never strands a published day; the record says which mapping built the ro
 |---|---|
 | `zeek-loader-v1` | The first mapping |
 | `zeek-loader-v2` | A dns.log row with an `rcode` and no `rtt` is an unsolicited reply, not an unanswered query. Zeek 9 logs a reply it cannot match that way and raises no weird (`fixtures/zeek-real/`) |
+| `zeek-loader-v3` | With `--local-nets` given, an IPv6 side is local by Zeek's flags; before, it was never local, so every IPv6 connection was dropped. Floating-point sums (the minute upload rate, DNS service time) add in a fixed order, so two loads of the same logs write the same bytes |
 
 ## Rules that apply to every table
 
-- **The local side is the client.** Local means inside `--local-nets` (`NETWORK_BEHAVIOUR_LOCAL_NETS`, IPv4) when
-  that is given. Otherwise it is whatever Zeek's `local_orig` and `local_resp` say.
+- **The local side is the client.** When `--local-nets` (`NETWORK_BEHAVIOUR_LOCAL_NETS`, IPv4) is given, an
+  IPv4 side is local when it is inside those networks. Every other side, and every side when no networks
+  are given, is local by Zeek's `local_orig` and `local_resp`.
   - A connection with both sides local, or neither, is dropped, because a border sensor never sees one.
   - Zeek counts private address space as local unless `Site::private_address_space_is_local` is `F`,
     and its private space includes the documentation ranges. On synthetic data, Zeek's flags therefore
@@ -100,7 +102,7 @@ connection, but activity keeps the original columns.
 |---|---|
 | `complete_sessions` | dns.log transactions with an `rtt` |
 | `unanswered_sessions` | Transactions with neither an `rtt` nor an `rcode`: no reply was seen |
-| `unsolicited_sessions`, `unsolicited_response_packets` | Transactions with an `rcode` but no `rtt`: Zeek logs a reply it saw no query for that way. One packet each. Older Zeek versions reported these in weird.log as `dns_unmatched_reply`; those count too, once per `uid`. Zeek also drops an `rtt` of exactly zero, so a reply timestamped with its query would count here; that is rare |
+| `unsolicited_sessions`, `unsolicited_response_packets` | Transactions with an `rcode` but no `rtt`: Zeek logs a reply it saw no query for that way. One packet each. Older Zeek versions reported these in weird.log as `dns_unmatched_reply`; each such row counts too, unless dns.log already counted that reply under the same `uid`. Zeek also drops an `rtt` of exactly zero, so a reply timestamped with its query would count here; that is rare |
 | `query_packets`, `response_packets` | The transaction's conn.log `orig_pkts`/`resp_pkts`, counted once per `uid`, less the unsolicited replies |
 | `unanswered_query_packets` | Query packets of `uid`s with no answered transaction |
 | `mean_service_nanos` | Mean `rtt` of the complete transactions, in nanoseconds |
@@ -116,7 +118,23 @@ appears as a client, and the DNS family identifies and leaves out such servers a
 - **The upload rate is approximated** (above).
 - **Detail is kept while loaded.** The probe kept about fifteen days (`CASE_STUDY` §1). A Zeek-loaded day
   stays until it is reloaded. `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` reproduces the old limit.
-- **IPv6 locality** comes only from Zeek's flags, and IPv6 servers carry no ASN.
+- **IPv6 locality** comes only from Zeek's flags, with or without `--local-nets`, and IPv6 servers carry
+  no ASN.
+
+## The ASN table
+
+Server ASNs, network names and countries come from an ip2asn-format TSV, given to `load-zeek` and
+`ioc-match` as `--asn-table` or `NETWORK_BEHAVIOUR_ASN_TABLE` (`source/zeek/asn.py`).
+
+- **Where to get it:** iptoasn.com publishes `ip2asn-v4.tsv` free. Each line is `range_start range_end
+  AS_number country_code AS_description`, tab-separated. The demo writes a synthetic one.
+- **IPv4 only.** The loader reads only IPv4 ranges. AS 0 means unrouted and counts as no ASN, and an IPv6
+  server carries none.
+- **Without it,** `asn` is empty on every row:
+  - triage forms a service for a server with no name from its address alone, where the table would group a
+    network's addresses into one service (`normalization/service.py: build_logical_service`);
+  - `ioc-match` writes no network name or country;
+  - the IOC report's E4 cannot explain a contact, because the network serving it is unknown.
 
 ## Synthetic data
 

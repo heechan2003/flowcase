@@ -1,7 +1,7 @@
 # ioc-report: agent guide
 
 This tool reads an IOC-match feed (ThreatFox by default), adds live and retained context, decides every case in code
-(`rules.py`), and has a local model summarise the review cases. It depends on `network_behaviour`
+(`rules.py`), and has a local model write an overview of every case. It depends on `network_behaviour`
 (`packages/triage`, a member of the same uv workspace) for source guards, service hashing and its DuckDB.
 
 - **Never print or commit** feed contents, reports, internal addresses, domains or source rows. `data/` and
@@ -38,8 +38,9 @@ This tool reads an IOC-match feed (ThreatFox by default), adds live and retained
   judged (`tests/test_evals.py`, `tests/test_listing.py`). The second opinion runs on ThreatFox cases only.
 - **Numbers come from measurement.** Every threshold cites a section of `docs/CASE_STUDY.md` (`CASE_STUDY §N`).
 - **Populations are the scored ones.** A campus rate or quantile counts addresses with a service row
-  (`behavioural-support-v3`, `history.SCORED_MIN_SERVICES`), never every `history.client_day` row:
-  60–75% of those carry only unaddressed rows (CASE_STUDY §2, §3).
+  (`behavioural-support-v3`, `history.SCORED_MIN_SERVICES`), never every `history.client_day` row. On the
+  original source 60–75% of those rows carried only unaddressed traffic (CASE_STUDY §2, §3); the Zeek loader
+  writes no unaddressed rows, but an address with no service row still has nothing to compare.
 - **Knowledge is cited.** Every family and service entry in `knowledge.py` lists public sources. A field
   that cannot be cited stays `None` and enables no rule. To describe a family for the case reports alone,
   add it to `REPORT_FAMILIES`. Adding it to `FAMILIES`, or having a rule read `REPORT_FAMILIES`, changes blind
@@ -53,8 +54,9 @@ This tool reads an IOC-match feed (ThreatFox by default), adds live and retained
   leaves the machine (`cli.pseudonymise`, `text.without_addresses`), and every request demands zero-retention,
   no-collection routing. Keys live only in `.env`, never in `.env.example`. Software signals in `knowledge.py`
   cite public sources, as families do.
-- **The chosen external model is `anthropic/claude-haiku-5.5`.** It is the only model that passed `evals/`.
-  Its verdicts run in shadow mode, recorded and never applied (README, "How we proceed"), and it writes the
+- **The chosen external model is `anthropic/claude-haiku-5.5`.** It is the only model that passed the
+  original `evals/` run; on this repository's synthetic cases it failed two bars, both in the safe direction
+  (README, "Evaluating model verdicts"). Its verdicts run in shadow mode, recorded and never applied (README, "How we proceed"), and it writes the
   case reports' paragraphs when asked. Any change to `SHADOW_PROMPT` must pass `evals/` again; `REPORT_PROMPT`
   gives no verdict, so a change to it need not. OpenRouter credit is a fixed $5 that will not be topped up:
   check the balance and use `--budget` before any paid run.

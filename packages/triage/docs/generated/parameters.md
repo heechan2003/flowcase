@@ -14,6 +14,7 @@ Changing any value requires the evidence bundle in `docs/EVALUATION.md`.
 | calibrated | 20 | Fitted against a stated target, with the effect measured |
 | provisional | 2 | Proposed or not yet implemented; a target exists but is unmet |
 | inherited-unjustified | 17 | Arrived from contract v1. No target on record |
+| retired | 6 | No longer in force; kept as the record of what it was and why it went |
 
 An unjustified parameter is not necessarily wrong. It is unexamined, which is a different
 problem and the one this table exists to keep visible.

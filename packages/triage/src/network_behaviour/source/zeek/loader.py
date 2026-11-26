@@ -3,10 +3,11 @@
 The rules, each with a test in `tests/unit/source/zeek/`:
 
 - **Orientation.** The local side is `client_ip` and the remote side `server_ip`; `server_port` is
-  the remote side's port whoever opened the session, as on the original probe. Local comes from
-  `local_nets` when given, otherwise from Zeek's `local_orig`/`local_resp`. A connection with both
-  or neither side local is dropped: a border sensor never sees one. `initiator` says who opened it
-  (`client` when the local side originated), so direction is known for every connection.
+  the remote side's port whoever opened the session, as on the original probe. An IPv4 side is
+  local when it is inside `local_nets`, if those are given; any other side is local by Zeek's
+  `local_orig`/`local_resp`, so IPv6 always follows Zeek. A connection with both or neither side
+  local is dropped: a border sensor never sees one. `initiator` says who opened it (`client` when
+  the local side originated), so direction is known for every connection.
 - **Minute grain.** A connection occupies every minute it spans, and its bytes and packets are split
   by overlap so the minutes sum exactly to the connection. `flow_count` counts connections starting
   in the minute. Only minutes inside the day are written; the next day's load writes the rest.
@@ -21,13 +22,15 @@ The rules, each with a test in `tests/unit/source/zeek/`:
 - **Rate.** `host_load_5m` is written from the same split minutes, so activity and rate reconcile
   exactly. `up_rate_p95_bps` approximates the original's 1-second peaks: each minute's rate is the
   sum of the average upload rates of the connections active in it, and the bucket keeps the p95 of
-  its minutes. Detectors read it only against history and peers.
+  its minutes. Detectors read it only against history and peers. Every floating-point sum adds its
+  values in sorted order, so two loads of the same logs write the same bytes.
 - **Long flows** are connections starting in the day that moved `LONG_FLOW_MIN_BYTES` or more.
 - **DNS pairs** are hourly per (client, resolver). A transaction with an `rtt` is complete. One
   without an `rtt` is unanswered when it has no `rcode` (no reply was seen) and an unsolicited reply
   when it has one: Zeek 9 logs a reply it cannot match to a query that way. Packets come from the
   transaction's conn.log row, service time from `rtt`. Older Zeek versions flagged such replies in
-  weird.log as `dns_unmatched_reply`; those count too, once.
+  weird.log as `dns_unmatched_reply`; each such row counts too, unless dns.log already counted that
+  reply under the same `uid`.
 """
 
 from __future__ import annotations
@@ -51,12 +54,14 @@ from network_behaviour.source.zeek.asn import (
 )
 from network_behaviour.source.zeek.logs import KINDS_BY_NAME, ZeekLogError, find_logs, stage
 
-LOADER_VERSION = "zeek-loader-v2"
+LOADER_VERSION = "zeek-loader-v3"
 """The mapping these rules describe. Recorded per day in `zeek.loaded_day`, beside the four tables.
 
 - zeek-loader-v1: the first mapping.
 - zeek-loader-v2: a dns.log row with an `rcode` and no `rtt` is an unsolicited reply, not an
   unanswered query (Zeek 9 logs unmatched replies that way and raises no weird).
+- zeek-loader-v3: with `local_nets` given, an IPv6 side is local by Zeek's flags instead of never;
+  floating-point sums (the minute upload rate, DNS service time) no longer depend on thread order.
 """
 LONG_FLOW_MIN_BYTES = 1_000_000
 """The floor `sql/source/` applies to long-flow evidence; the loader stores nothing below it."""
@@ -211,6 +216,16 @@ def _macros(connection: duckdb.DuckDBPyConnection, local_nets: Sequence[IPv4Netw
             coalesce((SELECT bool_or(ipv4_int(ip) BETWEEN lo AND hi) FROM local_nets), false)
         """
     )
+    # The local networks are IPv4, so they decide only IPv4 sides; Zeek's flag decides the rest.
+    connection.execute(
+        """
+        CREATE OR REPLACE TEMP MACRO local_by_nets(ip, flag) AS
+            CASE WHEN ipv4_int(ip) IS NULL THEN flag ELSE in_local_nets(ip) END
+        """
+    )
+    # A floating-point sum in a fixed order: DuckDB's parallel `sum` adds in thread order, which
+    # moves the last bit between loads of the same logs.
+    connection.execute("CREATE OR REPLACE TEMP MACRO stable_sum(xs) AS list_sum(list_sort(xs))")
 
 
 def _orient(
@@ -218,8 +233,8 @@ def _orient(
 ) -> tuple[int, int]:
     """`oriented`: every connection overlapping the day with exactly one local side, turned so
     the local side is the client. Returns (connections overlapping the day, dropped)."""
-    local_orig = "in_local_nets(orig_h)" if by_nets else "local_orig"
-    local_resp = "in_local_nets(resp_h)" if by_nets else "local_resp"
+    local_orig = "local_by_nets(orig_h, local_orig)" if by_nets else "local_orig"
+    local_resp = "local_by_nets(resp_h, local_resp)" if by_nets else "local_resp"
     connection.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE overlapping AS
@@ -423,7 +438,7 @@ def _write(
                sum(up_b), sum(down_b)
         FROM (
             SELECT client_ip, minute, sum(up_b) AS up_b, sum(down_b) AS down_b,
-                   sum(conn_rate_bps) AS rate_bps
+                   stable_sum(list(conn_rate_bps)) AS rate_bps
             FROM minutes GROUP BY client_ip, minute
         )
         GROUP BY ALL
@@ -456,12 +471,13 @@ def _write(
 
 
 def _dns_locality(alias: str, by_nets: bool) -> tuple[str, str]:
-    """(origin is local, responder is local) for a dns.log or weird.log row. Without local
-    networks, Zeek's flags come from the transaction's conn.log row (`c`); a querier with none
-    counts as local."""
+    """(origin is local, responder is local) for a dns.log or weird.log row. Zeek's flags come
+    from the transaction's conn.log row (`c`); a querier with none counts as local, a responder
+    with none as remote. With local networks, they decide the IPv4 sides and the flags the rest."""
+    orig, resp = "coalesce(c.local_orig, true)", "coalesce(c.local_resp, false)"
     if by_nets:
-        return f"in_local_nets({alias}.orig_h)", f"in_local_nets({alias}.resp_h)"
-    return "coalesce(c.local_orig, true)", "coalesce(c.local_resp, false)"
+        return f"local_by_nets({alias}.orig_h, {orig})", f"local_by_nets({alias}.resp_h, {resp})"
+    return orig, resp
 
 
 _CONN_FLAGS = """(
@@ -529,7 +545,7 @@ def _write_dns(
                    count(*) FILTER (WHERE outcome = 'complete') AS complete,
                    count(*) FILTER (WHERE outcome = 'unanswered') AS unanswered,
                    count(*) FILTER (WHERE outcome = 'unsolicited') AS unsolicited,
-                   sum(rtt) FILTER (WHERE outcome = 'complete') AS rtt_sum,
+                   stable_sum(list(rtt) FILTER (WHERE outcome = 'complete')) AS rtt_sum,
                    coalesce(any_value(orig_pkts), count(*) FILTER (WHERE outcome <> 'unsolicited'))
                        AS query_pkts,
                    -- Each unsolicited reply is one packet, counted as unsolicited instead.
@@ -544,7 +560,7 @@ def _write_dns(
                    sum(unsolicited) AS unsolicited,
                    sum(query_pkts) AS query_pkts, sum(response_pkts) AS response_pkts,
                    sum(query_pkts) FILTER (WHERE complete = 0) AS unanswered_pkts,
-                   sum(rtt_sum) / nullif(sum(complete), 0) AS mean_rtt
+                   stable_sum(list(rtt_sum)) / nullif(sum(complete), 0) AS mean_rtt
             FROM per_uid GROUP BY ALL
         )
         SELECT to_timestamp(hour * 3600) AS time, client_ip, server_ip,

@@ -64,7 +64,8 @@ Named intermediates used by those conditions:
 `_tie_key` is `_rank_key` without the last term (`str(item.episode_id)`), which is a digest and
 carries no evidence. Episodes equal on every remaining term share a `tie_group` and are
 **not ordered relative to each other**. The stream reports that rather than hiding it,
-because roughly 90% of adjacent within-tier pairs are tied (`CASE_STUDY` §12).
+because roughly 90% of adjacent within-tier pairs were tied on the original source
+(`CASE_STUDY` §12).
 
 ## Independent corroboration
 
