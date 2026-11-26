@@ -178,3 +178,27 @@ def test_a_paid_run_stops_when_the_live_source_is_unavailable(
     assert main([str(FEED), "--budget", "0.10"]) == 2
     assert "load the match days into the source, or pass --no-live" in capsys.readouterr().err
     assert len(post.calls) == 2  # the model listing and the credit check; no case was sent
+
+
+@pytest.mark.parametrize(
+    ("detail_days", "advice", "not_said"),
+    [
+        ("", "Run the report with the live source", "Run each feed within"),
+        ("15", "Run each feed within 13 days", "Run the report with the live source"),
+    ],
+)
+def test_a_run_without_the_live_source_advises_by_the_source_s_retention(
+    tmp_path: Path,
+    store_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    detail_days: str,
+    advice: str,
+    not_said: str,
+) -> None:
+    """--no-live reads no source, but the retention it declares still shapes the advice."""
+    monkeypatch.setenv("NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS", detail_days)
+    _run(tmp_path, store_path, monkeypatch, "out", "--no-model")
+
+    page = (tmp_path / "out" / "ioc_matches_synthetic.html").read_text(encoding="utf-8")
+    assert advice in page
+    assert not_said not in page

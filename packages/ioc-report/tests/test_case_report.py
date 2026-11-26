@@ -21,6 +21,7 @@ from ioc_report import cli
 from ioc_report.case_report import (
     LIMITS,
     CaseReportError,
+    _plain,
     brief,
     code_text,
     file_stem,
@@ -371,6 +372,16 @@ def test_monitoring_is_named_in_plain_words(tmp_path: Path) -> None:
         for line in found.outcome
     )
     assert not any("triage" in step.lower() for step in found.next_steps)
+
+
+def test_the_digest_counts_read_plainly_in_the_brief() -> None:
+    """A rule's count is kinds of contact or findings, never "items", and loses its rule code."""
+    assert _plain("E1 explains 1 kind(s) of contact: UDP contact.") == (
+        "An ordinary reason covers 1 address, port and name combination(s): UDP contact."
+    )
+    assert _plain("K4 on 3 finding(s); the first: a scheduled contact.") == (
+        "3 finding(s); the first: a scheduled contact."
+    )
 
 
 def test_every_gap_is_named_in_plain_words(tmp_path: Path) -> None:

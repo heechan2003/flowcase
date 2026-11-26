@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from time import monotonic
 from types import TracebackType
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 from network_behaviour.config import ConfigurationError, SourceConfig
 from network_behaviour.source.duckdb_client import DuckDbSourceClient, DuckDbSourceError
@@ -84,13 +84,17 @@ class QueryAudit:
     status: str
 
 
-def bytes_read(read_bytes: int) -> str:
-    """`, N bytes read` for a footprint line, or nothing when the source did not measure bytes.
+def bytes_read(read_bytes: int, *, unit: Literal["bytes", "GB"] = "bytes") -> str:
+    """`, N bytes read` (or `, N.NN GB read`) for a footprint line, or nothing when the source did
+    not measure bytes.
 
     DuckDB reports rows scanned but no bytes, so its `read_bytes` is always 0; a source that
     measures bytes and read anything reports more than 0.
     """
-    return f", {read_bytes:,} bytes read" if read_bytes else ""
+    if not read_bytes:
+        return ""
+    size = f"{read_bytes / 1e9:.2f} GB" if unit == "GB" else f"{read_bytes:,} bytes"
+    return f", {size} read"
 
 
 class AuditSink(Protocol):

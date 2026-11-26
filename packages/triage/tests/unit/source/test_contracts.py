@@ -1,6 +1,6 @@
 from typing import Any
 
-from network_behaviour.source.client import QueryAudit, QueryOutcome
+from network_behaviour.source.client import QueryAudit, QueryOutcome, bytes_read
 from network_behaviour.source.contracts import (
     SOURCE_CONTRACTS,
     SourceContractReport,
@@ -120,3 +120,9 @@ def test_the_footprint_states_bytes_only_when_the_source_measured_them() -> None
     assert "1500 rows read, 0.000 seconds" in unmeasured
     assert "bytes read" not in unmeasured
     assert "1500 rows read, 2,048 bytes read, 0.000 seconds" in measured
+
+
+def test_bytes_read_gives_bytes_or_gigabytes_and_nothing_unmeasured() -> None:
+    assert bytes_read(0) == bytes_read(0, unit="GB") == ""
+    assert bytes_read(2_048) == ", 2,048 bytes read"
+    assert bytes_read(1_234_000_000, unit="GB") == ", 1.23 GB read"

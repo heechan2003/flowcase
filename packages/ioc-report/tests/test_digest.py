@@ -51,9 +51,10 @@ def test_a_hundred_contacts_read_as_their_reasons(tmp_path: Path) -> None:
     unexplained = [line for line in text.splitlines() if "Not explained:" in line]
     assert len(result.decision.unexplained) == 42
     assert len(unexplained) == 2
-    assert any("40 contact(s)" in line and "and 34 more" in line for line in unexplained)
+    assert any("40 kind(s) of contact" in line and "and 34 more" in line for line in unexplained)
     assert any(
-        "2 contact(s)" in line and "under the flagged domain" in line for line in unexplained
+        "2 kind(s) of contact" in line and "under the flagged domain" in line
+        for line in unexplained
     )
     k1 = [line for line in text.splitlines() if "K1:" in line]
     assert len(k1) == 1 and "2 kind(s) of contact" in k1[0]
@@ -138,6 +139,46 @@ def test_one_address_port_and_name_across_three_days_is_one_kind(tmp_path: Path)
         "9 minute(s) on 2026-10-15..2026-10-17"
     ) in text
     assert "named the flagged domain on 1 kind(s) of contact" in text
+    assert "Not explained: 1 kind(s) of contact with 1.1.1.1" in text
+
+
+def test_a_rule_explains_a_contact_on_three_days_as_one_kind(tmp_path: Path) -> None:
+    """E1 on a UDP contact the live source returns on three days: one kind, not three items."""
+    day = date(2026, 10, 15)
+    host, server = "192.0.2.10", "1.1.1.1"
+
+    def daily(on: date, minutes: int) -> PairContact:
+        start = int(datetime(on.year, on.month, on.day, 3, tzinfo=UTC).timestamp()) // 60
+        return PairContact(
+            day=on, server_ip=server, transport=17, port=443, sni="", root_domain="", dns="",
+            asn="13335", active_minutes=minutes, minute_epochs=tuple(range(start, start + minutes)),
+            up_bytes=1000, down_bytes=10_000, flows=minutes,
+        )  # fmt: skip
+
+    days = tuple(day + timedelta(days=n) for n in range(3))
+    live = LiveContext(
+        status="queried",
+        days_queried=days,
+        contacts={(host, server): tuple(daily(on, 2 + n) for n, on in enumerate(days))},
+    )
+    feed, case = load(
+        tmp_path,
+        [
+            record(
+                [minute_row("2026-10-15 03:00:00", transport=17, down=10_000)],
+                indicator="1.1.1.1:443",
+                indicator_type="ip:port",
+            )
+        ],
+    )
+    found = evidence(feed, case, live=live)
+    decision = decide(found, feed.domain_indicators)
+    retained = HistoryContext(tmp_path / "none.duckdb", Coverage(frozenset(), frozenset()), {})
+    text = case_digest(found, decision, live, retained).text()
+
+    assert decision.disposition == "explained"
+    assert "E1 explains 1 kind(s) of contact: UDP contact" in text
+    assert "item(s)" not in text
 
 
 def test_kinds_are_listed_once_each_with_their_days_summed(tmp_path: Path) -> None:

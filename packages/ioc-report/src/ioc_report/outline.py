@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ioc_report.casefile import next_step_items
+from ioc_report.contact import Contact
 from ioc_report.digest import Line
 from ioc_report.knowledge import family_profile, other_list_background, service_for
 from ioc_report.live import horizon_for
@@ -179,9 +180,19 @@ def checks(results: Sequence[CaseResult]) -> list[Check]:
 
     domains = sum(1 for r in results if r.evidence.case.is_domain)
     payload = sum(1 for r in results if r.evidence.case.listing.threat_type == "payload_delivery")
-    e3_alone = [
-        judged for r in results for judged in r.decision.contacts if judged.rules == ("E3",)
-    ]
+    # Kinds of contact per case, each once: not a hidden feed copy, nor one per live day.
+    e3_alone = sum(
+        len(
+            {
+                judged.item.label
+                for index, judged in enumerate(r.decision.contacts)
+                if judged.rules == ("E3",)
+                and isinstance(judged.item, Contact)
+                and not r.evidence.hidden_contact(index)
+            }
+        )
+        for r in results
+    )
     tunnels = sum(
         1
         for r in results
@@ -228,9 +239,9 @@ def checks(results: Sequence[CaseResult]) -> list[Check]:
         ),
         Check(
             "A newly registered TLS name",
-            f"{len(e3_alone)} contact(s) explained by the TLS-name rule alone",
+            f"{e3_alone} kind(s) of contact explained by the TLS-name rule alone",
             f"a name registered under {NEW_NAME_DAYS} days before the match (RDAP)",
-            f"{len(e3_alone)} checked; the age of the names in {e3_unknown} case(s) is unknown",
+            f"{e3_alone} checked; the age of the names in {e3_unknown} case(s) is unknown",
         ),
     ]
 

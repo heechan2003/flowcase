@@ -475,7 +475,9 @@ def _kept(evidence: Evidence, findings: Sequence[Finding]) -> list[str]:
         elif len(found) == 1:
             lines.append(f"{rule}: {found[0].text}.")
         else:
-            lines.append(f"{rule} on {len(found)} items; the first: {found[0].text}.")
+            # Findings are already one per text (`rules._keeps`): K3 gives one per stream
+            # episode and K4 one per scheduled day, so the count is findings, not contacts.
+            lines.append(f"{rule} on {len(found)} finding(s); the first: {found[0].text}.")
     return lines
 
 
@@ -489,7 +491,7 @@ def _unexplained(evidence: Evidence, decision: Decision) -> list[str]:
         contacts = [m.item for m in members if isinstance(m.item, Contact)]
         flows = [m.item for m in members if isinstance(m.item, FlowContact)]
         what = (
-            (f"{len(contacts)} contact(s)" if contacts else "")
+            (f"{len(by_label(contacts))} kind(s) of contact" if contacts else "")
             + (" and " if contacts and flows else "")
             + (f"{len(flows)} long flow(s)" if flows else "")
         )
@@ -505,17 +507,30 @@ def _unexplained(evidence: Evidence, decision: Decision) -> list[str]:
 
 
 def _explaining(evidence: Evidence, decision: Decision) -> list[str]:
-    counts: Counter[str] = Counter()
+    """What each explaining rule covers: kinds of contact (`by_label`, so a contact on several
+    days is one) and long flows."""
+    kinds: dict[str, set[str]] = defaultdict(set)
+    flows: Counter[str] = Counter()
     texts: dict[str, str] = {}
     for judged in _visible(evidence, (*decision.contacts, *decision.flows), decision):
         for finding in judged.explained_by:
-            counts[finding.rule] += 1
             if isinstance(judged.item, Contact):
+                kinds[finding.rule].add(judged.item.label)
                 texts.setdefault(finding.rule, finding.text)
-    return [
-        f"{rule} explains {counts[rule]} item(s)" + (f": {texts[rule]}." if rule in texts else ".")
-        for rule in sorted(counts)
-    ]
+            else:
+                flows[finding.rule] += 1
+    lines = []
+    for rule in sorted(set(kinds) | set(flows)):
+        what = " and ".join(
+            part
+            for part in (
+                f"{len(kinds[rule])} kind(s) of contact" if kinds.get(rule) else "",
+                f"{flows[rule]} long flow(s)" if flows[rule] else "",
+            )
+            if part
+        )
+        lines.append(f"{rule} explains {what}" + (f": {texts[rule]}." if rule in texts else "."))
+    return lines
 
 
 def _visible(evidence: Evidence, items: Iterable[Judged], decision: Decision) -> list[Judged]:

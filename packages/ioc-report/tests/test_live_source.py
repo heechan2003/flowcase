@@ -7,6 +7,7 @@ from pathlib import Path
 
 from network_behaviour.config import SourceConfig
 
+from ioc_report.cli import _context_names
 from ioc_report.feed import Case, load_feed
 from ioc_report.live import LiveSession, after_days, after_rows, minute_horizon
 from tests.conftest import minute_row, record, write_feed
@@ -139,6 +140,49 @@ def test_cases_weeks_apart_each_read_the_days_after_their_own_contact(tmp_path: 
         assert all(days[0] <= row.day <= days[-1] for row in after_rows(live, case))
     # The days between the two spans are not read.
     assert date(2026, 8, 16) not in live.destination_days
+    # Retained use is asked only for the names each case's own after view shows.
+    asked = {(first, name) for _host, first, name in _context_names(review, live)}
+    assert (early.days[0], "example.org") in asked
+    assert (early.days[0], "example.net") not in asked
+    assert (late.days[0], "example.net") in asked
+
+
+def test_each_day_reads_only_the_hosts_whose_case_needs_it(tmp_path: Path) -> None:
+    """Two hosts' cases weeks apart: neither host is read on the other's after-contact days."""
+    other = "192.0.2.20"
+    review = load_feed(
+        write_feed(
+            tmp_path,
+            [
+                record([minute_row(time, host=host)], host=host, indicator=indicator)
+                for time, host, indicator in (
+                    ("2026-08-01 10:00:00", HOST, "one.example.com"),
+                    ("2026-08-21 10:00:00", other, "two.example.com"),
+                )
+            ],
+        )
+    ).cases
+    write_source(
+        tmp_path / "source.duckdb",
+        [
+            activity("2026-08-01 10:00:00"),
+            activity("2026-08-21 10:00:00", host=other),
+            # Each host also active on a day only the other host's case reads.
+            activity("2026-08-22 10:00:00", root="example.org"),
+            activity("2026-08-02 10:00:00", host=other, root="example.net"),
+        ],
+    )
+
+    session = LiveSession.connect(SourceConfig(tmp_path / "source.duckdb"))
+    with session:
+        live = session.add_destinations(session.gather(review, NOW), review)
+
+    assert live.destinations is not None
+    assert {row.day for row in live.destinations[HOST]} <= {
+        date(2026, 7, 31) + timedelta(days=n) for n in range(14)
+    }
+    assert date(2026, 8, 22) not in {row.day for row in live.destinations[HOST]}
+    assert date(2026, 8, 2) not in {row.day for row in live.destinations.get(other, ())}
 
 
 def test_a_source_that_ends_before_the_wall_clock_is_read_only_to_its_last_day(

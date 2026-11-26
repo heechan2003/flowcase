@@ -93,8 +93,8 @@ _KEPT_BY = re.compile(r"[EK]\d \(([^)]*)\)")
 _WORDING: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     (re.compile(pattern), plain)
     for pattern, plain in (
-        (r"^[EK]\d explains (\d+) item\(s\)", r"An ordinary reason covers \1 item(s)"),
-        (r"^[EK]\d on (\d+) items; the first: ", r"\1 items; the first: "),
+        (r"^[EK]\d explains ", "An ordinary reason covers "),
+        (r"^[EK]\d on (\d+) finding\(s\); the first: ", r"\1 finding(s); the first: "),
         (r"^[EK]\d: ", ""),
         (
             r"established \(\d+\+ addresses on \d+\+ days(?:, CASE_STUDY §\d+)?\): (yes|no)",

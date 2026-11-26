@@ -108,7 +108,8 @@ code, since the demo runs without a model. A run with a model changes only the P
 a decision.
 
 `haiku-case-beacon.pdf` is the beacon case again, with the paragraphs written by
-`anthropic/claude-haiku-5.5` through OpenRouter (2026-11-26, one attempt, $0.0008):
+`anthropic/claude-haiku-5.5` through OpenRouter (2026-11-27, two attempts, $0.0018; code's checks
+sent the first reply back):
 
 ```shell
 cd packages/ioc-report
@@ -118,4 +119,4 @@ uv run ioc-case-report ../../demo/work/report/demo.json --case 2 --budget 0.05
 Compare it with `case-beacon.pdf`: the title, the facts line, the headings, the decision and the limits
 are code's in both. `haiku-case-beacon.json` is its audit file. `what_the_writer_read` is the whole
 brief the model was sent, with the host's address replaced by `HOST`, and `problems` lists what code's
-checks found in the reply (nothing, here). `--sample` leaves both files alone.
+checks found in the reply that was kept (nothing, here). `--sample` leaves both files alone.

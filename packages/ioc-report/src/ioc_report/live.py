@@ -463,35 +463,36 @@ class LiveSession:
         if self._runner is None or live.status != "queried" or not review or not live.latest_day:
             return live
         latest = live.latest_day
+        # (first day, last day) of the span each readable case's host is read on.
+        spans: list[tuple[str, date, date]] = []
         if self.horizon_days is None:
-            spans = {
-                start: min(latest, start + timedelta(days=MINUTE_HORIZON_DAYS))
-                for start in {case.days[0] - timedelta(days=1) for case in review}
-            }
-            readable = [case for case in review if case.days[0] - timedelta(days=1) <= latest]
+            for case in review:
+                start = case.days[0] - timedelta(days=1)
+                if start <= latest:
+                    last = min(latest, start + timedelta(days=MINUTE_HORIZON_DAYS))
+                    spans.append((case.source_host, start, last))
         else:
             horizon = latest - timedelta(days=self.horizon_days)
-            spans = {horizon: latest}
-            readable = [case for case in review if reads_after_view(case, horizon)]
-        hosts = sorted({case.source_host for case in readable})
-        if not hosts:
+            spans = [
+                (case.source_host, horizon, latest)
+                for case in review
+                if reads_after_view(case, horizon)
+            ]
+        # Each day reads only the hosts whose span covers it, still one batched query per day.
+        hosts_on: dict[date, set[str]] = defaultdict(set)
+        for host, start, last in spans:
+            for offset in range((last - start).days + 1):
+                hosts_on[start + timedelta(days=offset)].add(host)
+        if not hosts_on:
             return replace(live, destinations={})
-        days = tuple(
-            sorted(
-                {
-                    start + timedelta(days=offset)
-                    for start, last in spans.items()
-                    for offset in range((last - start).days + 1)
-                }
-            )
-        )
+        days = tuple(sorted(hosts_on))
         query = self._load("ioc_host_after", 1)
         rows: dict[str, list[DestinationDay]] = defaultdict(list)
         drop_fragments = _from_another_list(review)
         try:
             for day in days:
                 outcome = self._runner.run(
-                    query, bounds=UtcDay(day).bounds, parameters={"hosts": hosts}
+                    query, bounds=UtcDay(day).bounds, parameters={"hosts": sorted(hosts_on[day])}
                 )
                 for row in outcome.dictionaries():
                     if drop_fragments and is_address_fragment(str(row["root_domain"] or "")):

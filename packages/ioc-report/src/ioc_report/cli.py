@@ -49,6 +49,7 @@ from ioc_report.live import (
     MINUTE_HORIZON_DAYS,
     LiveContext,
     LiveSession,
+    after_rows,
     minute_horizon,
     plan_days,
 )
@@ -120,16 +121,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if isinstance(found, OpenRouterClient):
                     _require_credit(found)
         now = datetime.now(UTC)
-        source = None if args.no_live else SourceConfig.from_env()
+        # Read even with --no-live: the retention it declares shapes the advice on re-querying.
+        config = SourceConfig.from_env()
+        source = None if args.no_live else config
         if source is not None:
             _preflight(cases, now, minute_horizon(source))
-        session = LiveSession(None) if source is None else LiveSession.connect(source)
+        session = (
+            LiveSession(None, retention_days=config.detail_days)
+            if source is None
+            else LiveSession.connect(source)
+        )
     except (ConfigurationError, FeedError, HistoryError, ModelError) as exc:
         print(f"ioc-report: {exc}", file=sys.stderr)
         return 2
 
     with session:
-        live = LiveContext(status="skipped") if args.no_live else session.gather(cases, now)
+        live = (
+            LiveContext(status="skipped", retention_days=session.retention_days)
+            if args.no_live
+            else session.gather(cases, now)
+        )
         if live.status == "unavailable":
             if any(isinstance(found, OpenRouterClient) for found in (client, verdicts, reports)):
                 print(
@@ -425,7 +436,7 @@ def _context_names(review: Sequence[Case], live: LiveContext) -> list[tuple[str,
     requests: dict[tuple[str, date, str], None] = {}
     for case in review:
         names = [row.root_domain for row in (live.host_context or {}).get(case.source_host, ())]
-        names += [row.root_domain for row in (live.destinations or {}).get(case.source_host, ())]
+        names += [row.root_domain for row in after_rows(live, case)]
         for name in names:
             if name:
                 requests[(case.host, case.days[0], name)] = None

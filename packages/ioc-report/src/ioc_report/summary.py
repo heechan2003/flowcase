@@ -362,11 +362,14 @@ def group_digest(group: CaseGroup) -> str:
     lines += [f"- {rule}: {RULE_MEANING.get(rule, rule)}" for rule in group.key[3]]
     lines.append("Cases:")
     for number, result in zip(group.numbers, group.results, strict=True):
-        contacts = [
-            contact.label
-            for index, contact in enumerate(result.evidence.contacts)
-            if not result.evidence.hidden_contact(index)
-        ]
+        # One entry per kind: the live source gives a contact per day.
+        contacts = list(
+            dict.fromkeys(
+                contact.label
+                for index, contact in enumerate(result.evidence.contacts)
+                if not result.evidence.hidden_contact(index)
+            )
+        )
         shown = "; ".join(contacts[:3]) + (
             f"; and {len(contacts) - 3} more" if len(contacts) > 3 else ""
         )
