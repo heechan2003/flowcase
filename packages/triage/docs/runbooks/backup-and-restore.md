@@ -1,8 +1,10 @@
 # Runbook — backup and restore
 
-The product database holds 365 days of retained history and every published stream. Source detail
-expires in roughly fifteen days (`CASE_STUDY` §1), so anything older than that exists **only**
-here. A lost database is a lost year, not a re-runnable job.
+The product database holds 365 days of retained history and every published stream. A day can be
+re-derived only while the source holds its detail: the original source kept about fifteen days
+(`CASE_STUDY` §1), and here a day stays while it is loaded, unless `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS`
+sets a retention. Anything the source no longer holds exists **only** here. A lost database is a lost
+year, not a re-runnable job.
 
 ## Backup
 
@@ -10,16 +12,17 @@ here. A lost database is a lost year, not a re-runnable job.
 network-behaviour backup --output /separate-storage/network_behaviour.duckdb
 ```
 
-Checkpoints, then verifies schema, history and feed readability before atomically replacing the
-target. A backup that fails verification is not written.
+Refuses a target that already exists. Otherwise it checkpoints, copies to a partial file, verifies
+schema, history and feed readability, and renames the copy into place. A backup that fails
+verification is not written. To refresh a backup, write a new path, then remove the old one.
 
 **The output path must be outside the 60 GiB writable product volume.** A backup beside the database
 protects against corruption and nothing else — not a full volume, which is the failure the storage
 ceiling exists to anticipate, and not loss of the volume itself.
 
-Cadence follows what is irrecoverable. Everything inside the source retention window can be
-re-derived; everything older cannot. Back up at least as often as that window, or a failure loses
-history no amount of re-running can rebuild.
+Cadence follows what is irrecoverable. Every day the source still holds can be re-derived; every
+other day cannot. Back up at least as often as the source's retention, or a failure loses history no
+amount of re-running can rebuild.
 
 ## Restore
 
@@ -37,10 +40,13 @@ place yourself.
 After restoring:
 
 ```shell
-network-behaviour storage-report
+NETWORK_BEHAVIOUR_DUCKDB_PATH=data/restored-network_behaviour.duckdb network-behaviour storage-report
 NETWORK_BEHAVIOUR_DUCKDB_PATH=data/restored-network_behaviour.duckdb \
   network-behaviour run-day --day <a-published-day> --dry-run
 ```
+
+Both read `NETWORK_BEHAVIOUR_DUCKDB_PATH`, so without the prefix they check the production database,
+not the restored one.
 
 The dry run should report `already_published` for a day the backup contained. If it reports `ready`,
 the restore is missing published state and is not equivalent to the original.

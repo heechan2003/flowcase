@@ -29,7 +29,8 @@ The rules, each with a test in `tests/unit/source/zeek/`:
   without an `rtt` is unanswered when it has no `rcode` (no reply was seen) and an unsolicited reply
   when it has one: Zeek 9 logs a reply it cannot match to a query that way. Packets come from the
   transaction's conn.log row, service time from `rtt`. Older Zeek versions flagged such replies in
-  weird.log as `dns_unmatched_reply`; those count too, once.
+  weird.log as `dns_unmatched_reply`; each such row counts too, unless dns.log already counted that
+  reply under the same `uid`.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ hand-written log rows; this checks the loader against what Zeek actually writes.
 | File | What it is |
 |---|---|
 | `make_pcap.py` | Builds `trace.pcap` with scapy. Byte-stable: every address, port, sequence number, payload and timestamp is fixed |
-| `trace.pcap` | About two minutes on 2026-03-02 (UTC): DNS answered, unanswered and unsolicited; TLS with SNI; HTTP named only by DNS; an inbound session; a 1.2 MB upload across three minutes |
+| `trace.pcap` | Four minutes on 2026-03-02 (UTC), 12:00 to 12:04: DNS answered, unanswered and unsolicited; TLS with SNI; HTTP named only by DNS; an inbound session; a 1.2 MB upload across three minutes |
 | `logs/json/` | Zeek's JSON logs |
 | `logs/json-iso/` | The same, with ISO 8601 timestamps (`LogAscii::json_timestamps=JSON::TS_ISO8601`) |
 | `logs/tsv/` | Zeek's default tab-separated logs |

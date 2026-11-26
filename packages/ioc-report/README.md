@@ -94,8 +94,8 @@ retained days, and the case file states how many there were.
 ## Setup
 
 This package is a member of the repository's uv workspace and depends on `network_behaviour`
-(`packages/triage`) for source guards, service hashing and its DuckDB. It needs Python 3.13 and,
-for the local writer, Ollama.
+(`packages/triage`) for source guards, service hashing and its DuckDB. It needs Python 3.12 or later
+(the repository pins 3.13, and CI checks both) and, for the local writer, Ollama.
 
 ```shell
 make sync                                        # from the repository root
@@ -110,6 +110,11 @@ OLLAMA_KV_CACHE_TYPE=q8_0 OLLAMA_FLASH_ATTENTION=1 ollama serve
 - the Ollama settings;
 - optionally `REPORT_TIMEZONE`, an IANA zone whose clock the reports show beside UTC (UTC alone
   by default).
+
+`.env.example` lists every setting the code reads, and leaves the ones with a default commented out at
+that default. Beside those this page names, they are `NETWORK_BEHAVIOUR_SOURCE_QUERY_TIMEOUT` (seconds
+per live query), `NETWORK_BEHAVIOUR_SYNTHETIC` (demo and tests only), `RDAP_CACHE_DIR`, and
+`OPENROUTER_BASE_URL`, `OPENROUTER_EFFORT` and `OPENROUTER_MAX_TOKENS` for external runs.
 
 Process environment values take precedence. `OLLAMA_URL` must be a loopback address, because the case
 files hold internal addresses and domains. `NAME_LOOKUP=rdap` turns on the name check (see

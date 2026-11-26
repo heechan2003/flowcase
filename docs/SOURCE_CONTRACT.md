@@ -102,7 +102,7 @@ connection, but activity keeps the original columns.
 |---|---|
 | `complete_sessions` | dns.log transactions with an `rtt` |
 | `unanswered_sessions` | Transactions with neither an `rtt` nor an `rcode`: no reply was seen |
-| `unsolicited_sessions`, `unsolicited_response_packets` | Transactions with an `rcode` but no `rtt`: Zeek logs a reply it saw no query for that way. One packet each. Older Zeek versions reported these in weird.log as `dns_unmatched_reply`; those count too, once per `uid`. Zeek also drops an `rtt` of exactly zero, so a reply timestamped with its query would count here; that is rare |
+| `unsolicited_sessions`, `unsolicited_response_packets` | Transactions with an `rcode` but no `rtt`: Zeek logs a reply it saw no query for that way. One packet each. Older Zeek versions reported these in weird.log as `dns_unmatched_reply`; each such row counts too, unless dns.log already counted that reply under the same `uid`. Zeek also drops an `rtt` of exactly zero, so a reply timestamped with its query would count here; that is rare |
 | `query_packets`, `response_packets` | The transaction's conn.log `orig_pkts`/`resp_pkts`, counted once per `uid`, less the unsolicited replies |
 | `unanswered_query_packets` | Query packets of `uid`s with no answered transaction |
 | `mean_service_nanos` | Mean `rtt` of the complete transactions, in nanoseconds |
@@ -120,6 +120,21 @@ appears as a client, and the DNS family identifies and leaves out such servers a
   stays until it is reloaded. `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` reproduces the old limit.
 - **IPv6 locality** comes only from Zeek's flags, with or without `--local-nets`, and IPv6 servers carry
   no ASN.
+
+## The ASN table
+
+Server ASNs, network names and countries come from an ip2asn-format TSV, given to `load-zeek` and
+`ioc-match` as `--asn-table` or `NETWORK_BEHAVIOUR_ASN_TABLE` (`source/zeek/asn.py`).
+
+- **Where to get it:** iptoasn.com publishes `ip2asn-v4.tsv` free. Each line is `range_start range_end
+  AS_number country_code AS_description`, tab-separated. The demo writes a synthetic one.
+- **IPv4 only.** The loader reads only IPv4 ranges. AS 0 means unrouted and counts as no ASN, and an IPv6
+  server carries none.
+- **Without it,** `asn` is empty on every row:
+  - triage forms a service for a server with no name from its address alone, where the table would group a
+    network's addresses into one service (`normalization/service.py: build_logical_service`);
+  - `ioc-match` writes no network name or country;
+  - the IOC report's E4 cannot explain a contact, because the network serving it is unknown.
 
 ## Synthetic data
 
