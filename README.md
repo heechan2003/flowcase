@@ -15,6 +15,59 @@ synthetic dataset, so it runs anywhere and holds no data from that network.
 | `demo/` | A synthetic Zeek network with planted cases, and `make demo`, which runs everything and checks each case |
 | `fixtures/zeek-real/` | A synthetic capture and the logs real Zeek wrote from it, for a compatibility test |
 
+## Architecture
+
+```mermaid
+%%{init: {"flowchart": {"wrappingWidth": 400}}}%%
+flowchart TD
+    zeek[/"Zeek logs<br/>conn · ssl · dns · weird"/]
+    asn[/"ip2asn table"/]
+    tfx[/"ThreatFox export"/]
+    load["network-behaviour load-zeek"]
+    src[("Source DuckDB<br/>four flow.* tables<br/>read-only to every reader")]
+    store[("Retained store DuckDB<br/>daily episode streams<br/>365-day history, no raw names")]
+    match["ioc-match"]
+    feed[/"IOC-match feed"/]
+    out[/"HTML · Markdown · JSON report<br/>PDF per review case"/]
+    orr["OpenRouter · Haiku<br/>off the machine, opt-in<br/>zero-retention routing"]
+    rdap["RDAP registration dates<br/>off the machine, opt-in"]
+
+    zeek --> load
+    asn --> load
+    load --> src
+
+    subgraph triage["triage: one UTC day at a time"]
+        direction LR
+        gates["Contract and<br/>drift gates"] --> detect["Baselines and five<br/>detector families"] --> order["Tiers and ordering<br/>sequencing, not risk"]
+    end
+
+    subgraph decides["ioc-report: code decides"]
+        direction LR
+        evid["Evidence<br/>per case"] --> rules{{"rules.py<br/>review or explained"}} --> digest["digest.py<br/>facts for the writer"]
+    end
+
+    subgraph writes["ioc-report: a model writes, code checks"]
+        direction LR
+        writer["Model writes the prose<br/>local by default"] <-->|"fails: sent back,<br/>3 tries in all"| check{{"narrative.py<br/>checks every reply"}}
+    end
+
+    src --> triage
+    triage <-->|"publishes each day once<br/>reads the days before it"| store
+    tfx --> match
+    src --> match
+    match --> feed --> decides
+    src -->|"live contacts"| decides
+    store -->|"history and triage episodes"| decides
+    decides -->|"the digest only"| writes
+    writes -->|"a reply that passes,<br/>else code's own text"| out
+    decides -->|"the decision, unchanged"| out
+    writes -.->|"HOST in place of the address"| orr
+    decides -.->|"registered domains only"| rdap
+
+    classDef offbox stroke-dasharray: 5 5
+    class orr,rdap offbox
+```
+
 ## Develop
 
 Needs [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer.
