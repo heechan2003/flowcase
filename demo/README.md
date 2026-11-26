@@ -4,13 +4,13 @@ One command runs the whole pipeline on a synthetic network and checks every plan
 
 ```shell
 make sync
-make demo        # about 10 minutes; everything it writes goes to demo/work/ (git-ignored)
+make demo        # about 4 minutes; everything it writes goes to demo/work/ (git-ignored)
 ```
 
 `demo/run.py --from STEP` resumes at a step (`generate`, `load`, `triage`, `match`, `report`, `check`)
 over the files an earlier run left, and `--sample` refreshes `sample-output/` after a passing check. On
-an 8-core laptop: generate under 30 s (2.15 M connections), load 1-2 min, triage 7-11 min (35 days,
-slower as history grows), match and report a few seconds.
+an 8-core laptop on 2026-11-26 it took 4 min 20 s: generate 15 s (2.15 M connections), load 75 s, triage
+2 min 50 s (35 days, 3-7 s a day, slower as history grows), match and report a few seconds.
 
 ### The small world
 
@@ -21,9 +21,9 @@ make demo-small  # the same planted cases on 230 hosts instead of 400; writes de
 It keeps the first 45 hosts of each profile plus every scenario host (`--hosts-per-profile`). Each
 host's traffic is seeded by its address and the day alone, so the small world is an exact subset of
 the full one: the planted cases are the same traffic, checked against the same `expected.json` with
-one allowance (below). Every peer band still has at least 40 hosts. CI runs it on every pull request and every push to
-`main` (`.github/workflows/ci.yml`, job `demo-small`). On the same laptop it took 5 minutes on 2026-11-26 (1.37 M connections; load 45 s, triage
-4 min) against 9 for the full world.
+one allowance (below). Every peer band still has at least 40 hosts. CI runs it on every pull request
+and every push to `main` (`.github/workflows/ci.yml`, job `demo-small`). On the same laptop it took
+2.5 minutes on 2026-11-26 (1.37 M connections; load 45 s, triage 1.5 min).
 
 Fewer peers move peer percentiles, so a rule that rests on one near the tail can come out either way.
 `expected.json` lists those under `_small_world_optional`: today only the tunnel visitor's K3, whose

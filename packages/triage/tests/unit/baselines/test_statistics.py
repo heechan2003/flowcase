@@ -1,4 +1,5 @@
-from math import isfinite
+from math import isfinite, log1p
+from random import Random
 
 import pytest
 
@@ -65,3 +66,64 @@ def test_statistics_and_policy_reject_invalid_inputs() -> None:
         BaselinePolicy(min_cohort=19)
     with pytest.raises(ValueError, match="cannot be negative"):
         HistoryConfidence.from_active_days(-1)
+
+
+def _old_quantile(values: tuple[float, ...], probability: float) -> float:
+    """The implementation the sorted helper replaced, kept as an oracle."""
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * probability
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
+
+
+def _old_summary(values: tuple[float | None, ...]) -> tuple[object, ...] | None:
+    clean = tuple(value for value in values if value is not None)
+    if not clean:
+        return None
+    logged = tuple(log1p(value) for value in clean)
+    median_logged = _old_quantile(logged, 0.5)
+    mad = _old_quantile(tuple(abs(value - median_logged) for value in logged), 0.5)
+    q25, q75 = _old_quantile(logged, 0.25), _old_quantile(logged, 0.75)
+    return (len(clean), median_logged, mad, q25, q75, _old_quantile(clean, 0.5))
+
+
+def test_robust_summary_matches_the_unsorted_oracle_exactly() -> None:
+    rng = Random(20261126)
+    cases: list[tuple[float | None, ...]] = [
+        (),
+        (None,),
+        (None, None),
+        (0.0,),
+        (5.0,),
+        (3.0, 3.0, 3.0),
+        (0.0, 0.0, 1.0),
+        (1.0, None, 2.0, None, 1e12),
+    ]
+    for _ in range(500):
+        size = rng.randint(1, 60)
+        cases.append(
+            tuple(
+                None
+                if rng.random() < 0.1
+                else rng.choice(
+                    [float(rng.randint(0, 5)), rng.uniform(0, 1e9), rng.expovariate(1e-3)]
+                )
+                for _ in range(size)
+            )
+        )
+    for values in cases:
+        summary = robust_summary(values)
+        expected = _old_summary(values)
+        if expected is None:
+            assert summary is None
+            continue
+        assert summary is not None
+        assert (
+            summary.count,
+            summary.median_log1p,
+            summary.mad_log1p,
+            summary.q25_log1p,
+            summary.q75_log1p,
+            summary.median_raw,
+        ) == expected

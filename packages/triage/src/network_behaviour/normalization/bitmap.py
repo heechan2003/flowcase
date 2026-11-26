@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from itertools import pairwise
 
 from network_behaviour.time import UtcDay
 
@@ -48,40 +47,48 @@ class ActivityBitmap:
             buckets.append(seconds // 300)
         return cls.from_buckets(buckets)
 
+    @property
+    def bits(self) -> int:
+        """The bitmap as an integer whose bit i is bucket i (little-endian bytes)."""
+        return int.from_bytes(self.value, "little")
+
     def __or__(self, other: ActivityBitmap) -> ActivityBitmap:
-        return ActivityBitmap(
-            bytes(left | right for left, right in zip(self.value, other.value, strict=True))
-        )
+        return ActivityBitmap((self.bits | other.bits).to_bytes(BITMAP_BYTES, "little"))
 
     def active_buckets(self) -> tuple[int, ...]:
-        return tuple(
-            bucket
-            for bucket in range(BUCKET_COUNT)
-            if self.value[bucket // 8] & (1 << (bucket % 8))
-        )
+        buckets: list[int] = []
+        bits = self.bits
+        while bits:
+            low = bits & -bits
+            buckets.append(low.bit_length() - 1)
+            bits ^= low
+        return tuple(buckets)
 
     @property
     def count(self) -> int:
-        return sum(byte.bit_count() for byte in self.value)
+        return self.bits.bit_count()
 
     @property
     def first_bucket(self) -> int | None:
-        buckets = self.active_buckets()
-        return buckets[0] if buckets else None
+        bits = self.bits
+        return (bits & -bits).bit_length() - 1 if bits else None
 
     @property
     def last_bucket(self) -> int | None:
-        buckets = self.active_buckets()
-        return buckets[-1] if buckets else None
+        bits = self.bits
+        return bits.bit_length() - 1 if bits else None
 
     @property
     def run_count(self) -> int:
-        buckets = self.active_buckets()
-        return sum(
-            index == 0 or bucket != buckets[index - 1] + 1 for index, bucket in enumerate(buckets)
-        )
+        """Active buckets whose previous bucket is idle: one per run."""
+        bits = self.bits
+        return (bits & ~(bits << 1)).bit_count()
 
     @property
     def internal_gap_count(self) -> int:
-        buckets = self.active_buckets()
-        return sum(max(0, right - left - 1) for left, right in pairwise(buckets))
+        """Idle buckets between the first and last active ones."""
+        bits = self.bits
+        if not bits:
+            return 0
+        first = (bits & -bits).bit_length() - 1
+        return bits.bit_length() - first - bits.bit_count()

@@ -1015,13 +1015,10 @@ def _relationship_large_flow(current: _CurrentRelationship, strength: float) -> 
 
 
 def _comparable_time_shape(current: ActivityBitmap, prior: ActivityBitmap) -> bool:
-    prior_buckets = set(prior.active_buckets())
-    timing_overlap = any(
-        candidate in prior_buckets
-        for bucket in current.active_buckets()
-        for candidate in (bucket - 1, bucket, bucket + 1)
-        if 0 <= candidate < 288
-    )
+    # Some prior bucket is within one bucket of a current one. A shift past bucket 287 meets no
+    # prior bit, so the edges need no bounds check.
+    bits = current.bits
+    timing_overlap = bool(prior.bits & (bits | bits << 1 | bits >> 1))
     run_tolerance = max(1, current.run_count // 2)
     gap_tolerance = max(1, current.internal_gap_count // 4)
     return (

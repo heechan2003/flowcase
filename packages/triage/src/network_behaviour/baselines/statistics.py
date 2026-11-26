@@ -14,7 +14,11 @@ def quantile(values: tuple[float, ...], probability: float) -> float:
         raise ValueError("quantile requires at least one value")
     if not 0 <= probability <= 1:
         raise ValueError("quantile probability must be between zero and one")
-    ordered = sorted(validate_measure(value) for value in values)
+    return _quantile_sorted(sorted(validate_measure(value) for value in values), probability)
+
+
+def _quantile_sorted(ordered: list[float], probability: float) -> float:
+    """`quantile` on values already validated and sorted."""
     position = (len(ordered) - 1) * probability
     lower = int(position)
     upper = min(lower + 1, len(ordered) - 1)
@@ -23,15 +27,16 @@ def quantile(values: tuple[float, ...], probability: float) -> float:
 
 
 def robust_summary(values: tuple[float | None, ...]) -> RobustSummary | None:
-    clean = tuple(validate_measure(value) for value in values if value is not None)
+    clean = [validate_measure(value) for value in values if value is not None]
     if not clean:
         return None
-    logged = tuple(log1p(value) for value in clean)
-    median_logged = quantile(logged, 0.5)
-    deviations = tuple(abs(value - median_logged) for value in logged)
-    mad = quantile(deviations, 0.5)
-    q25 = quantile(logged, 0.25)
-    q75 = quantile(logged, 0.75)
+    # log1p of a finite non-negative value is finite and non-negative, and so is each absolute
+    # deviation, so only the inputs need validating. Each list is sorted once.
+    logged = sorted(log1p(value) for value in clean)
+    median_logged = _quantile_sorted(logged, 0.5)
+    mad = _quantile_sorted(sorted(abs(value - median_logged) for value in logged), 0.5)
+    q25 = _quantile_sorted(logged, 0.25)
+    q75 = _quantile_sorted(logged, 0.75)
     if mad > 0:
         method = ResidualMethod.MAD
     elif q75 > q25:
@@ -44,7 +49,7 @@ def robust_summary(values: tuple[float | None, ...]) -> RobustSummary | None:
         mad,
         q25,
         q75,
-        quantile(clean, 0.5),
+        _quantile_sorted(sorted(clean), 0.5),
         method,
     )
 
