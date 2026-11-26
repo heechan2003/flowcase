@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # Branches are checked through their pull requests (into main or an integration branch), so a push
+  # to one doesn't run everything twice. main is checked again once a pull request lands.
   pull_request:
   push:
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,12 +16,17 @@ concurrency:
 
 jobs:
   check:
+    # Both packages declare requires-python >= 3.12, so check the oldest supported version too.
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
       - name: Install both packages and development tools
         run: uv sync --all-packages --all-extras --locked
       # Includes the leak check (scripts/check_leaks.py): no routable address, no data file.

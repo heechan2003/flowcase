@@ -21,8 +21,8 @@ make demo-small  # the same planted cases on 230 hosts instead of 400; writes de
 It keeps the first 45 hosts of each profile plus every scenario host (`--hosts-per-profile`). Each
 host's traffic is seeded by its address and the day alone, so the small world is an exact subset of
 the full one: the planted cases are the same traffic, checked against the same `expected.json` with
-one allowance (below). Every peer band still has at least 40 hosts. CI runs it on every push (`.github/workflows/ci.yml`, job
-`demo-small`). On the same laptop it took 5 minutes on 2026-11-26 (1.37 M connections; load 45 s, triage
+one allowance (below). Every peer band still has at least 40 hosts. CI runs it on every pull request and every push to
+`main` (`.github/workflows/ci.yml`, job `demo-small`). On the same laptop it took 5 minutes on 2026-11-26 (1.37 M connections; load 45 s, triage
 4 min) against 9 for the full world.
 
 Fewer peers move peer percentiles, so a rule that rests on one near the tail can come out either way.
