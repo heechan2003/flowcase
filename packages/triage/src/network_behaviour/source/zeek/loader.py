@@ -51,6 +51,13 @@ from network_behaviour.source.zeek.asn import (
 )
 from network_behaviour.source.zeek.logs import KINDS_BY_NAME, ZeekLogError, find_logs, stage
 
+LOADER_VERSION = "zeek-loader-v2"
+"""The mapping these rules describe. Recorded per day in `zeek.loaded_day`, beside the four tables.
+
+- zeek-loader-v1: the first mapping.
+- zeek-loader-v2: a dns.log row with an `rcode` and no `rtt` is an unsolicited reply, not an
+  unanswered query (Zeek 9 logs unmatched replies that way and raises no weird).
+"""
 LONG_FLOW_MIN_BYTES = 1_000_000
 """The floor `sql/source/` applies to long-flow evidence; the loader stores nothing below it."""
 UNKNOWN_CATEGORY = "_unknown"
@@ -73,10 +80,12 @@ class LoadReport:
     long_flow_rows: int
     named_connections: int
     by_local_nets: bool = False
+    loader_version: str = LOADER_VERSION
 
     def render(self) -> str:
         lines = [
-            f"day: {self.day}",
+            f"day: {self.day} ({self.loader_version}, local by "
+            f"{'--local-nets' if self.by_local_nets else 'Zeek flags'})",
             f"log files: {self.files}",
             f"connections in the day: {self.connections} "
             f"({self.dropped_connections} dropped: both or neither side local)",
@@ -111,13 +120,19 @@ def parse_local_nets(raw: str) -> tuple[IPv4Network, ...]:
 
 
 def create_source_tables(connection: duckdb.DuckDBPyConnection) -> None:
-    """The four tables, typed exactly as `source/contracts.py` requires."""
+    """The four tables, typed exactly as `source/contracts.py` requires, and the load record. The
+    record lives in schema `zeek`, which no reader queries and the contract check never lists."""
     connection.execute("CREATE SCHEMA IF NOT EXISTS flow")
     for contract in SOURCE_CONTRACTS:
         columns = ", ".join(f"{column.name} {column.type_name}" for column in contract.columns)
         connection.execute(
             f"CREATE TABLE IF NOT EXISTS {contract.database}.{contract.table} ({columns})"
         )
+    connection.execute("CREATE SCHEMA IF NOT EXISTS zeek")
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS zeek.loaded_day "
+        "(day DATE PRIMARY KEY, loader_version VARCHAR NOT NULL, locality VARCHAR NOT NULL)"
+    )
 
 
 def load_day(
@@ -156,6 +171,10 @@ def load_day(
         try:
             _clear(connection, start, end)
             counts = _write(connection, start, end, bool(local_nets))
+            connection.execute(
+                "INSERT OR REPLACE INTO zeek.loaded_day VALUES (?, ?, ?)",
+                [day, LOADER_VERSION, ",".join(map(str, local_nets)) or "zeek-flags"],
+            )
             connection.execute("COMMIT")
         except BaseException:
             connection.execute("ROLLBACK")
@@ -170,8 +189,11 @@ def load_day(
         connections=connections,
         dropped_connections=dropped,
         named_connections=named,
+        activity_rows=counts["activity_rows"],
+        rate_rows=counts["rate_rows"],
+        dns_rows=counts["dns_rows"],
+        long_flow_rows=counts["long_flow_rows"],
         by_local_nets=bool(local_nets),
-        **counts,
     )
 
 

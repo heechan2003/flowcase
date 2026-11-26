@@ -12,7 +12,7 @@ from zeek_logs import DAY, Query, at, conn, dns, write_json, write_tsv
 from network_behaviour.normalization.ip import NormalizedIp
 from network_behaviour.normalization.service import registered_domain
 from network_behaviour.publication import NORMALIZATION_BUNDLE_VERSION, normalization_bundle_version
-from network_behaviour.source.zeek import LoadReport, ZeekLoadError, load_day
+from network_behaviour.source.zeek import LOADER_VERSION, LoadReport, ZeekLoadError, load_day
 from network_behaviour.source.zeek.loader import LONG_FLOW_MIN_BYTES, parse_local_nets
 
 NETS = (IPv4Network("10.0.0.0/8"),)
@@ -190,6 +190,20 @@ def test_reloading_a_day_replaces_it(tmp_path: Path, query: Query) -> None:
     _load(tmp_path)
 
     assert query("SELECT count(*) FROM flow.activity_1m") == [(1,)]
+
+
+def test_each_day_records_the_mapping_and_locality_that_built_it(
+    tmp_path: Path, query: Query
+) -> None:
+    write_json(tmp_path / "logs", "conn", [conn("a", at("10:00:00"), HOST, SERVER)])
+
+    _load(tmp_path, nets=False)
+    report = _load(tmp_path)
+
+    assert query("SELECT day, loader_version, locality FROM zeek.loaded_day") == [
+        (DAY, LOADER_VERSION, "10.0.0.0/8")
+    ]
+    assert f"({LOADER_VERSION}, local by --local-nets)" in report.render()
 
 
 def test_plain_dns_stays_out_of_activity(tmp_path: Path, query: Query) -> None:
