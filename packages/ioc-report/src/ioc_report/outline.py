@@ -1,6 +1,6 @@
-"""The report's structure, computed once for both renderers: the threats behind the feed, what to
-do and where, the checks behind every verdict, and each case's verdict lines. Code-written and
-display-only, so the HTML and the Markdown cannot disagree.
+"""The report's structure, computed once for the Markdown and the JSON: the threats behind the
+feed, what to do and where, the checks behind every verdict, and each case's verdict lines.
+Code-written and display-only, so the two files cannot disagree.
 
 The shape follows the php2shell hunt write-up: a summary, the background, an analysis of each
 group of like cases, the conclusion with its actions, one card per case, and an appendix that

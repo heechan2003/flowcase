@@ -1,13 +1,13 @@
-"""Write the report: one HTML page and one Markdown file for people, one JSON file for reuse.
+"""Write the report: one Markdown file for people, one JSON file for audit and reuse.
 
-Both read like the php2shell hunt write-up: an executive summary, the threats behind the feed, an
-analysis of each group of like cases, the conclusion with what to do, one card per case, and an
-appendix of the checks behind every verdict. Every case gets an overview, review and explained
-alike: the local model writes it from the case's digest and code checks it, and when the model
-is off or its text fails the checks, code's own sentences stand in. No prose changes a decision.
+The Markdown gives the summary, the threats behind the feed, every case in one table, what to do
+by system, and then each case: what code decided and why, every contact and how it was judged, and
+the digest's sourced facts. The JSON holds all of that and more: each case's overview, which the
+local model writes from the digest and code checks (code's own sentences stand in when the model
+is off or its text fails), the digest itself and the case file. No prose changes a decision.
 
-All three files carry internal addresses and domains. They go to a git-ignored directory and are
-never committed or pasted outside the team.
+Both files carry internal addresses and domains. They go to a git-ignored directory and are shared
+only with people cleared to see the network's data.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from ioc_report import html_report
 from ioc_report.contact import Contact
 from ioc_report.facts import CaseFacts, case_facts
 from ioc_report.feed import Feed
@@ -81,22 +80,15 @@ def write_report(
     generated_at: datetime,
     groups: list[CaseGroup] | None = None,
     summary: Narrative = NOT_WRITTEN,
-) -> tuple[Path, Path, Path]:
+) -> tuple[Path, Path]:
     """`results` in report order (`ordered`), `groups` from `case_groups` over them.
-    Returns (html, markdown, json)."""
+    Returns (markdown, json)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     results = ordered(results)
     groups = groups if groups is not None else case_groups(results)
     facts = [case_facts(result.evidence, result.decision, live, history) for result in results]
-    page = out_dir / f"{name}.html"
     markdown = out_dir / f"{name}.md"
     data = out_dir / f"{name}.json"
-    page.write_text(
-        html_report.render(
-            name, feed, results, facts, live, history, model_label, generated_at, groups, summary
-        ),
-        encoding="utf-8",
-    )
     markdown.write_text(
         _markdown(
             name, feed, results, facts, live, history, model_label, generated_at, groups, summary
@@ -123,7 +115,7 @@ def write_report(
         + "\n",
         encoding="utf-8",
     )
-    return page, markdown, data
+    return markdown, data
 
 
 def _markdown(
