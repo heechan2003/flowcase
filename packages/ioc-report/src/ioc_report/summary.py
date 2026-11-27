@@ -1,6 +1,6 @@
-"""What both renderers say about a run, computed once: the case results, their order, coverage, rule
+"""What the report says about a run, computed once: the case results, their order, coverage, rule
 and indicator counts, and the shadow-verdict tallies. No formatting beyond plain sentences, so the
-Markdown and the HTML report cannot disagree about a number."""
+Markdown and the JSON cannot disagree about a number."""
 
 from __future__ import annotations
 

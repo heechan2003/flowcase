@@ -1,13 +1,13 @@
-"""Write the report: one HTML page and one Markdown file for people, one JSON file for reuse.
+"""Write the report: one Markdown file for people, one JSON file for audit and reuse.
 
-Both read like the php2shell hunt write-up: an executive summary, the threats behind the feed, an
-analysis of each group of like cases, the conclusion with what to do, one card per case, and an
-appendix of the checks behind every verdict. Every case gets an overview, review and explained
-alike: the local model writes it from the case's digest and code checks it, and when the model
-is off or its text fails the checks, code's own sentences stand in. No prose changes a decision.
+The Markdown gives the summary, the threats behind the feed, every case in one table, what to do
+by system, and then each case: what code decided and why, every contact and how it was judged, and
+the digest's sourced facts. The JSON holds all of that and more: each case's overview, which the
+local model writes from the digest and code checks (code's own sentences stand in when the model
+is off or its text fails), the digest itself and the case file. No prose changes a decision.
 
-All three files carry internal addresses and domains. They go to a git-ignored directory and are
-never committed or pasted outside the team.
+Both files carry internal addresses and domains. They go to a git-ignored directory and are shared
+only with people cleared to see the network's data.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from ioc_report import html_report
 from ioc_report.contact import Contact
 from ioc_report.facts import CaseFacts, case_facts
 from ioc_report.feed import Feed
@@ -51,14 +50,23 @@ from ioc_report.summary import (
     coverage_items,
     feed_text,
     group_text,
+    indicator_age,
     listing_line,
     ordered,
+    requeried,
     rule_counts,
     shadow_counts,
+    shadow_worth_a_look,
 )
-from ioc_report.text import when
+from ioc_report.text import duration, minute, size, when
 
 __all__ = ["RULES", "CaseResult", "ordered", "write_report"]
+
+# A family's cited background, which the report's Threats section lists once rather than per case.
+BACKGROUND = "Knowledge, background not evidence"
+EVERY_CHECK = (
+    "nothing; every check ran (live re-query, published stream, retained 5-minute timing)."
+)
 
 
 def write_report(
@@ -72,24 +80,19 @@ def write_report(
     generated_at: datetime,
     groups: list[CaseGroup] | None = None,
     summary: Narrative = NOT_WRITTEN,
-) -> tuple[Path, Path, Path]:
+) -> tuple[Path, Path]:
     """`results` in report order (`ordered`), `groups` from `case_groups` over them.
-    Returns (html, markdown, json)."""
+    Returns (markdown, json)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     results = ordered(results)
     groups = groups if groups is not None else case_groups(results)
     facts = [case_facts(result.evidence, result.decision, live, history) for result in results]
-    page = out_dir / f"{name}.html"
     markdown = out_dir / f"{name}.md"
     data = out_dir / f"{name}.json"
-    page.write_text(
-        html_report.render(
+    markdown.write_text(
+        _markdown(
             name, feed, results, facts, live, history, model_label, generated_at, groups, summary
         ),
-        encoding="utf-8",
-    )
-    markdown.write_text(
-        _markdown(name, feed, results, live, history, model_label, generated_at, groups, summary),
         encoding="utf-8",
     )
     data.write_text(
@@ -112,13 +115,14 @@ def write_report(
         + "\n",
         encoding="utf-8",
     )
-    return page, markdown, data
+    return markdown, data
 
 
 def _markdown(
     name: str,
     feed: Feed,
     results: list[CaseResult],
+    facts: list[CaseFacts],
     live: LiveContext,
     history: HistoryContext,
     model_label: str,
@@ -126,18 +130,23 @@ def _markdown(
     groups: list[CaseGroup],
     summary: Narrative,
 ) -> str:
+    """The report for people: what each case is, what code decided and why, every contact and how
+    it was judged, and the sourced facts behind it. The writer's overviews, the digests and the case
+    files are in the JSON, not here."""
     review = [result for result in results if result.disposition == REVIEW]
     explained = [result for result in results if result.disposition == EXPLAINED]
     caveated = sum(1 for result in explained if result.caveats)
+    reason = {number: _reason(group) for group in groups for number in group.numbers}
     lines = [
         f"# IOC match report: {name}",
         "",
         f"Generated {generated_at:%Y-%m-%d %H:%M} UTC from {', '.join(p.name for p in feed.paths)}"
         f": {len(results)} case(s) from {feed.record_count} record(s), {feed.hosts} host(s), "
-        f"{feed.indicators} indicator(s). Sensitive: internal addresses, do not share outside the "
-        "team.",
+        f"{feed.indicators} indicator(s). Sensitive: internal addresses and domains; share only "
+        "with people cleared to see the network's data. The writer's overviews, the digests and "
+        f"the case files are in `{name}.json`.",
         "",
-        "## Executive summary",
+        "## Summary",
         "",
         feed_text(summary, results, groups, "summary"),
         "",
@@ -146,42 +155,45 @@ def _markdown(
         "says a host is compromised, infected or benign, because flow records cannot show that. "
         f"*Summary {written_by(summary, model_label)}.*",
         "",
-        "## Background",
-        "",
-        "### The threats",
-        "",
     ]
+    for item in coverage_items(feed, results, live, history):
+        lines.append(f"- **{item.label}:** {item.text}")
+        lines.extend(f"  - {detail}" for detail in item.details)
+    lines += ["", "## Threats", ""]
     for note in families(results):
         sources = f" Sources: {', '.join(note.sources)}." if note.sources else ""
         lines.append(
             f"- **{note.name}** ({note.source} `{note.malware}`, {', '.join(note.threat_types)}; "
             f"cases {_numbers(note.numbers)}): {note.background}{sources}"
         )
-    lines += ["", "### The data", ""]
-    for item in coverage_items(feed, results, live, history):
-        lines.append(f"- **{item.label}:** {item.text}")
-        lines.extend(f"  - {detail}" for detail in item.details)
-    lines += ["", "## Analysis", ""]
-    for group in groups:
-        lines += [
-            f"### {group.label} ({len(group.results)} case(s))",
-            "",
-            group_text(group),
-            f"*{written_by(group.narrative, model_label)}.*",
-            "",
-            "| # | Host | Indicator | First match | Code | Blind model | Reading |",
-            "|---|---|---|---|---|---|---|",
-        ]
-        for number, result in zip(group.numbers, group.results, strict=True):
-            case = result.evidence.case
-            lines.append(
-                f"| [{number}](#case-{number}) | `{case.host}` | `{case.indicator}` | "
-                f"{when(case.first)} | {result.disposition} | {model_verdict(result)} | "
-                f"{_cell(case_text(result, 'reading'))} |"
-            )
-        lines.append("")
     lines += [
-        "## Conclusion and next steps",
+        "",
+        "## Cases",
+        "",
+        "| # | Indicator | Host | Listing | First match | Decision | Reason |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for number, result in enumerate(results, 1):
+        case = result.evidence.case
+        lines.append(
+            f"| [{number}](#case-{number}) | `{case.indicator}` | `{case.host}` | "
+            f"{case.listing.malware}, {case.listing.threat_type} | {when(case.first)} | "
+            f"{_decision(result)} | {_cell(reason.get(number, ''))} |"
+        )
+    shared = [group for group in groups if len(group.results) > 1]
+    if shared:
+        lines += ["", "## Groups", ""]
+        for group in shared:
+            lines += [
+                f"### {group.label} (cases {_numbers(group.numbers)})",
+                "",
+                group_text(group),
+                f"*{written_by(group.narrative, model_label)}.*",
+                "",
+            ]
+    lines += [
+        "",
+        "## Next steps by system",
         "",
         feed_text(summary, results, groups, "conclusion"),
         "",
@@ -192,83 +204,103 @@ def _markdown(
             for action in actions(results)
         ),
         "",
-        "## Cases",
+        "## Each case",
     ]
-    for number, result in enumerate(results, 1):
-        lines += ["", *_case_section(number, result, model_label)]
+    for number, (result, found) in enumerate(zip(results, facts, strict=True), 1):
+        lines += ["", *_case_section(number, result, found)]
     lines += ["", *_appendix(results)]
     return "\n".join(lines) + "\n"
 
 
-def _case_section(number: int, result: CaseResult, model_label: str) -> list[str]:
-    case, decision = result.evidence.case, result.decision
+def _reason(group: CaseGroup) -> str:
+    """The group label without its family: what decided the case."""
+    return group.label.split(": ", 1)[-1]
+
+
+def _decision(result: CaseResult) -> str:
+    rules = result.decision.rules
+    return f"{result.disposition} ({', '.join(rules)})" if rules else result.disposition
+
+
+def _case_section(number: int, result: CaseResult, facts: CaseFacts) -> list[str]:
+    case = result.evidence.case
     lines = [
         f'<a id="case-{number}"></a>',
-        f"### {number}. `{case.indicator}` → `{case.host}`: {decision.disposition} · blind model "
-        f"{model_verdict(result)}",
+        f"### {number}. `{case.indicator}` · `{case.host}` · {_decision(result)}",
         "",
-        f"{case.listing.malware}, {case.listing.threat_type}; first match {when(case.first)}."
-        + (f" {listing_line(case)}" if case.threatfox_first_seen is not None else ""),
+        " · ".join(_particulars(result)) + ".",
+        "",
+        "**Why:**",
+        "",
+        *(f"- {line.text}" for line in reasons(result)),
         "",
     ]
-    for part, title in PARTS:
-        lines += [f"**{title}.** {case_text(result, part)}", ""]
-    lines += [f"*Overview {written_by(result.overview, model_label)}.*", ""]
-    lines += ["**Why code decided**", ""]
-    lines += [f"- {line.text}" for line in reasons(result)]
-    lines.append("")
-    if result.caveats:
-        lines += ["**What it could not check**", ""]
-        lines += [f"- {text}" for text in dict.fromkeys(c.text for c in result.caveats)]
-        lines.append("")
-    if result.next_steps:
-        lines += ["**Next steps**", ""]
-        lines += [f"{index}. {step}" for index, step in enumerate(result.next_steps, 1)]
-        lines.append("")
-    lines += [f"**What would change the reading:** {would_change(result)}.", ""]
-    if result.digest is not None:
+    if facts.timeline:
         lines += [
-            "<details><summary>The digest the overview was written from</summary>",
-            "",
-            "```text",
-            result.digest.text(),
-            "```",
-            "",
-            "</details>",
+            "| From (UTC) | To | Source | What | Min / flows | In | Out | Longest | Judged |",
+            "|---|---|---|---|---|---|---|---|---|",
+            *(
+                f"| {minute(row.first)} | {minute(row.last)} | {row.source} | "
+                f"{_cell(f'{row.kind}: {row.what}')} | "
+                f"{row.minutes if row.minutes is not None else row.flows} | {size(row.received)} | "
+                f"{size(row.sent)} | "
+                f"{duration(row.longest_sec) if row.longest_sec is not None else '—'} | "
+                f"{_cell(row.status)} |"
+                for row in facts.timeline
+            ),
             "",
         ]
-    lines += [
-        "<details><summary>The case file (every fact, with its source)</summary>",
-        "",
-        "```text",
-        result.case_file or "",
-        "```",
-        "",
-        "</details>",
-    ]
+    if result.digest is not None:
+        for title, digest_lines in result.digest.sections():
+            if title == "Decision" or (title == "Model verdict" and result.shadow is None):
+                continue
+            shown = [line for line in digest_lines if line.source != BACKGROUND]
+            if shown:
+                lines += [f"**{title}**", "", *(f"- {line.render()}" for line in shown), ""]
+    if len(facts.coverage) > 1:
+        lines += ["**Could not check:**", "", *(f"- {text}" for text in facts.coverage), ""]
+    else:
+        gap = facts.coverage[0] if facts.coverage else EVERY_CHECK
+        lines += [f"**Could not check:** {gap}", ""]
+    if result.disposition == REVIEW and result.next_steps:
+        lines += ["**Next steps:**", ""]
+        lines += [f"{index}. {step}" for index, step in enumerate(result.next_steps, 1)]
+        lines.append("")
+    lines.append(f"**Would change it:** {would_change(result)}.")
     return lines
 
 
+def _particulars(result: CaseResult) -> list[str]:
+    """One line of what the case is: the listing, the match and what else was checked. The flagged
+    address and its network are in the Threat facts."""
+    case = result.evidence.case
+    found = [
+        f"{case.listing.malware}, {case.listing.threat_type}",
+        f"first match {when(case.first)}",
+        f"{len(case.minutes)} matched minute(s) in {len(case.match_ids)} feed record(s)",
+    ]
+    if case.is_domain:
+        found.append(f"registered {indicator_age(result)}")
+    if case.threatfox_first_seen is not None:
+        found.append(listing_line(case).rstrip("."))
+    found += [f"live re-query {requeried(result)}", f"blind model {model_verdict(result)}"]
+    return found
+
+
 def _appendix(results: list[CaseResult]) -> list[str]:
+    counts = rule_counts(results)
     lines = [
         "## Appendix",
         "",
-        "### A. Every case",
+        "### The rules",
         "",
-        "| # | Indicator | Host | Listing | Code | Blind model | What would change the reading |",
-        "|---|---|---|---|---|---|---|",
-    ]
-    for number, result in enumerate(results, 1):
-        case = result.evidence.case
-        lines.append(
-            f"| {number} | `{case.indicator}` | `{case.host}` | {case.listing.malware}, "
-            f"{case.listing.threat_type} | {result.disposition} "
-            f"({', '.join(result.decision.rules)}) | {model_verdict(result)} | "
-            f"{_cell(would_change(result))} |"
-        )
-    lines += [
+        "| Rule | Meaning | Basis | Cases |",
+        "|---|---|---|---|",
+        *(f"| {rule} | {meaning} | {basis} | {counts[rule]} |" for rule, meaning, basis in RULES),
+        f"| — | review because at least one contact has no explanation | — | "
+        f"{counts['unexplained']} |",
         "",
-        "### B. The checks behind every verdict",
+        "### The checks behind every verdict",
         "",
         "| Check | Scope | A positive would be | Result |",
         "|---|---|---|---|",
@@ -276,29 +308,20 @@ def _appendix(results: list[CaseResult]) -> list[str]:
             f"| {check.name} | {check.scope} | {check.positive} | {check.result} |"
             for check in checks(results)
         ),
-        "",
-        "### C. The rules",
-        "",
-        "| Rule | Meaning | Basis | Cases |",
-        "|---|---|---|---|",
     ]
-    counts = rule_counts(results)
-    lines += [
-        f"| {rule} | {meaning} | {basis} | {counts[rule]} |" for rule, meaning, basis in RULES
-    ]
-    lines.append(
-        f"| — | review because at least one contact has no explanation | — | "
-        f"{counts['unexplained']} |"
-    )
     if tally := shadow_counts(results):
+        numbers = {id(result): number for number, result in enumerate(results, 1)}
+        worth = [numbers[id(result)] for result in shadow_worth_a_look(results)]
         lines += [
             "",
-            "### D. Blind model verdicts (never applied)",
+            "### Blind model verdicts (never applied)",
             "",
             "| Outcome | Cases |",
             "|---|---|",
             *(f"| {key} | {value} |" for key, value in sorted(tally.items())),
         ]
+        if worth:
+            lines += ["", f"Worth a second look: {_numbers(tuple(worth))}."]
     return lines
 
 

@@ -246,7 +246,7 @@ def test_nothing_credits_threatfox_with_another_lists_indicator(tmp_path: Path) 
     feed = _feed(tmp_path, _amazon(50001), _amazon(50002))
     result = _result(feed)
     assert result.digest is not None
-    page, markdown, data = write_report(
+    markdown, data = write_report(
         tmp_path / "run", "synthetic", feed, [result], SKIPPED, NO_HISTORY, "test", GENERATED
     )
     report = load_report(data)
@@ -259,7 +259,6 @@ def test_nothing_credits_threatfox_with_another_lists_indicator(tmp_path: Path) 
         "code's text": " ".join(code_text(brief(saved)).values()),
         "page": json.dumps(page_data(report, saved, code_text(brief(saved)))),
         "markdown": markdown.read_text(encoding="utf-8"),
-        "html": page.read_text(encoding="utf-8"),
     }
     for name, text in written.items():
         assert "threatfox" not in text.lower(), name

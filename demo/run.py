@@ -37,7 +37,7 @@ sys.path.insert(0, str(DEMO))
 import generate  # noqa: E402
 
 STEPS = ("generate", "load", "triage", "match", "report", "check")
-# The cases whose PDFs `--sample` keeps, beside the HTML report.
+# The cases whose PDFs `--sample` keeps, beside the Markdown report.
 SAMPLE_CASES = ("beacon", "flagged-domain", "download")
 
 
@@ -178,13 +178,13 @@ def check(work: Path) -> list[str]:
 
 
 def sample(work: Path, out: Path) -> None:
-    """Copy the HTML report and the `SAMPLE_CASES` PDFs into `out`, named for their scenarios.
+    """Copy the Markdown report and the `SAMPLE_CASES` PDFs into `out`, named for their scenarios.
     Other files there (the paid Haiku sample, `haiku-*`) are left alone."""
     out.mkdir(parents=True, exist_ok=True)
     for stale in out.glob("case-*.pdf"):
         stale.unlink()
     report = work / "report"
-    (out / "demo.html").write_bytes((report / "demo.html").read_bytes())
+    (out / "demo.md").write_bytes((report / "demo.md").read_bytes())
     wanted = {(s.indicator, s.host): s.id for s in generate.SCENARIOS if s.id in SAMPLE_CASES}
     for audit in sorted(report.glob("*.json")):
         if audit.name == "demo.json":

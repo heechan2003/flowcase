@@ -80,7 +80,7 @@ against a mislabelled family: the schedule shapes are rare (§10, §13), so it c
 | 6 | Live source, phase 3, review cases only: every destination the host exchanged traffic with on each day of its after-contact span, one query per day; then the retained use of every name phases 2 and 3 show | `live.py`, `history.py` |
 | 7 | Every case: the case file (the blind verdict's input), and a digest that groups its facts and reasons. Review cases also get next steps. With `--shadow`, a blind verdict per case | `casefile.py`, `digest.py`, `after.py`, `shadow.py` |
 | 8 | The writer, a local model, turns each digest into the case's overview, then writes a paragraph per group of like cases and the executive summary. Every reply is checked, and cached by its exact request | `narrative.py`, `summary.py` |
-| 9 | Write the HTML page, the Markdown copy and the JSON, with the actions and the checks behind every verdict | `outline.py`, `report.py`, `html_report.py` |
+| 9 | Write the Markdown report and the JSON, with the actions and the checks behind every verdict | `outline.py`, `report.py` |
 | 10 | With `--case-reports`, a short PDF for each review case, written by Haiku from that JSON. Off by default. `ioc-case-report` does the same step on its own, for any case in a finished run | `case_report.py`, `case_report.typ` |
 
 Minute detail is queried for as long as the source holds it. A Zeek-loaded source keeps every
@@ -354,45 +354,32 @@ from a new operator domain; a registration date can.
 
 ## Outputs
 
-**`output/<feed>.html`, the report to read.** One self-contained page, laid out like the
-security project's hunt write-ups. Its Content-Security-Policy allows only its own inline style and
-script, so it opens from disk and loads nothing.
-1. **Executive summary:** the writer's paragraph, and tiles that count the cases and filter the
-   page: review, explained with caveats, explained with every check run. With `--shadow` there is
-   also a tile for how often the blind model agrees.
-2. **Background:**
-   - each ThreatFox family in the feed, with its cited background and sources;
-   - folded: the data, coverage and query footprint.
-3. **Analysis:** one section per group of cases code decided the same way for the same reasons,
-   review groups first. Each has the writer's paragraph and a table: host, first match, code
-   verdict, blind model verdict, and the one-line reading.
-4. **Conclusion and next steps:**
-   - the writer's conclusion;
-   - an actions table by the system that can settle them (device lease, endpoint, web gateway,
-     resolver, mail, the report's next run), with the cases each covers.
-5. **Cases:** one card per case, review first. Each card has:
-   - **the code verdict and the blind model verdict;**
-   - **the overview**: Threat, Host, What happened, How to read it;
-   - **why code decided**, grouped by reason;
-   - next steps, for a review case;
-   - what the case could not check;
-   - what would change the reading.
+**`output/<feed>.md`, the report to read.** Context first, prose second:
+1. **Summary:** the writer's paragraph, the review and explained counts, and the data: sources,
+   coverage and query footprint.
+2. **Threats:** each listed family in the feed once, with its cited background and sources.
+3. **Cases:** every case in one table: indicator, host, listing, first match, the decision with its
+   rules, and the reason.
+4. **Groups:** the writer's paragraph for each group of two or more cases decided the same way for
+   the same reasons.
+5. **Next steps by system:** the writer's conclusion, and an actions table by the system that can
+   settle them (device lease, endpoint, web gateway, resolver, mail, the report's next run).
+6. **Each case**, review first:
+   - one line of particulars: the listing, the first match, matched minutes and records, the
+     indicator's registration date for a domain, the live re-query and the blind verdict;
+   - **why** code decided;
+   - every contact and long flow once, with how it was judged;
+   - the digest's sourced facts: Threat, Host, What happened (a family's background is in
+     Threats);
+   - what the case could not check, next steps for a review case, and what would change the reading.
+7. **Appendix:** the rules with their counts, the checks behind every verdict with their scope and
+   what a positive would have been, and the blind-verdict tallies.
 
-   Folded at the end: the evidence (facts box, charts and tables), the digest the writer read,
-   and the case file the blind verdict read.
-6. **Appendix:**
-   - every case in one table;
-   - the checks behind every verdict, with their scope and what a positive would have been;
-   - the rules with their counts;
-   - the blind-verdict tallies.
-
-Light and dark follow the system. Print uses light and opens every fold.
-
-**`output/<feed>.md`:** the same report as text, in the same order.
+The writer's overview of each case, its digest and its case file are in the JSON.
 
 **`output/<feed>.json`:** for audit and reuse. It holds:
-- every case's decision, contacts, rule findings, digest and overview (the model's fields, or why
-  code's text stands);
+- every case's decision, contacts, rule findings, digest, case file and overview (the model's
+  fields, or why code's text stands);
 - the groups and the summary.
 
 **Caveats** say what an explained verdict could not check:

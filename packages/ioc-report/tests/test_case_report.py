@@ -121,7 +121,7 @@ def _saved(tmp_path: Path, run: Run) -> dict[str, Any]:
         ),
         digest=case_digest(found, decided, run.live, run.history),
     )
-    _page, _markdown, data = write_report(
+    _markdown, data = write_report(
         tmp_path / "run",
         "synthetic",
         run.feed,
@@ -1019,7 +1019,7 @@ def test_a_run_with_case_reports_writes_one_for_each_review_case(
     assert [path.name for path in run.glob("*.pdf")] == [
         f"NanoCore RAT ({HOST}, tunnel.example.com).pdf"
     ]
-    assert (run / "ioc_matches_synthetic.html").is_file()
+    assert (run / "ioc_matches_synthetic.md").is_file()
     audit = json.loads(
         (run / f"NanoCore RAT ({HOST}, tunnel.example.com).json").read_text(encoding="utf-8")
     )

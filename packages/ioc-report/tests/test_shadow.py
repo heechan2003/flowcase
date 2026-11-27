@@ -94,7 +94,10 @@ def test_shadow_verdicts_never_change_a_decision(
         "[Decision" not in p["messages"][1]["content"] for p in sent if p["format"] == SHADOW_SCHEMA
     )
     markdown = (tmp_path / "out" / "ioc_matches_synthetic.md").read_text("utf-8")
-    assert "### D. Blind model verdicts" in markdown and "disagrees, stable | 2" in markdown
+    assert (
+        "### Blind model verdicts (never applied)" in markdown
+        and "disagrees, stable | 2" in markdown
+    )
 
 
 def test_shadow_needs_the_model(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
