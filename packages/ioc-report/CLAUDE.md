@@ -24,8 +24,8 @@ This tool reads an IOC-match feed (ThreatFox by default), adds live and retained
   summary (`narrative.py`). It never changes a decision, code checks every reply, and code's own text stands
   when a reply fails. The model reads the digest, never the raw case file; the case file is the blind
   verdict's input only.
-- **Case reports say what we found, never how.** Their reader is the academic lead, who marks only the PDF
-  and knows nothing of this tool (`case_report.py`). Keep rules, thresholds, tools, data stores and models
+- **Case reports say what we found, never how.** Their reader sees only the PDF and knows nothing of this
+  tool (`case_report.py`). Keep rules, thresholds, tools, data stores and models
   out of the PDF: `case_report.brief` takes them out of what the writer reads, and
   `narrative.method_words` sends back a reply that uses them. Haiku writes the paragraphs from the case's
   saved digest; code writes everything else, and the decision is the one in the run's JSON. Nothing here
@@ -49,8 +49,8 @@ This tool reads an IOC-match feed (ThreatFox by default), adds live and retained
   protocol rule reads it, since such a network can also proxy raw TCP.
 - **The model is local by default.** `OLLAMA_URL` must be loopback. An external model runs only when
   `MODEL_PROVIDER` or `SHADOW_PROVIDER` is `openrouter`, or a case report is asked for (`ioc-case-report`,
-  `--case-reports`); the academic lead has permitted external models since the project began, and wants
-  agents to generate these reports. The case's internal host address is replaced with `HOST` before any text
+  `--case-reports`); external models are approved for these runs, and the reports are meant to be written by a
+  model. The case's internal host address is replaced with `HOST` before any text
   leaves the machine (`cli.pseudonymise`, `text.without_addresses`), and every request demands zero-retention,
   no-collection routing. Keys live only in `.env`, never in `.env.example`. Software signals in `knowledge.py`
   cite public sources, as families do.
@@ -58,8 +58,8 @@ This tool reads an IOC-match feed (ThreatFox by default), adds live and retained
   original `evals/` run; on this repository's synthetic cases it failed two bars, both in the safe direction
   (README, "Evaluating model verdicts"). Its verdicts run in shadow mode, recorded and never applied (README, "How we proceed"), and it writes the
   case reports' paragraphs when asked. Any change to `SHADOW_PROMPT` must pass `evals/` again; `REPORT_PROMPT`
-  gives no verdict, so a change to it need not. OpenRouter credit is a fixed $5 that will not be topped up:
-  check the balance and use `--budget` before any paid run.
+  gives no verdict, so a change to it need not. Check the OpenRouter balance and pass `--budget` before any
+  paid run.
 
 - **Synthetic data only.** Fixtures, eval cases and examples are synthetic. Never add a real feed,
   report, internal address or name. Campus hosts use documentation ranges or `10.0.0.0/8`.

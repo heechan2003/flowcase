@@ -103,12 +103,14 @@ connection, but activity keeps the original columns.
 | `complete_sessions` | dns.log transactions with an `rtt` |
 | `unanswered_sessions` | Transactions with neither an `rtt` nor an `rcode`: no reply was seen |
 | `unsolicited_sessions`, `unsolicited_response_packets` | Transactions with an `rcode` but no `rtt`: Zeek logs a reply it saw no query for that way. One packet each. Older Zeek versions reported these in weird.log as `dns_unmatched_reply`; each such row counts too, unless dns.log already counted that reply under the same `uid`. Zeek also drops an `rtt` of exactly zero, so a reply timestamped with its query would count here; that is rare |
-| `query_packets`, `response_packets` | The transaction's conn.log `orig_pkts`/`resp_pkts`, counted once per `uid`, less the unsolicited replies |
+| `query_packets`, `response_packets` | The transaction's conn.log `orig_pkts`/`resp_pkts`, counted once per `uid`, or one per transaction when conn.log has no row for it. Response packets leave out the unsolicited replies, which are counted above |
 | `unanswered_query_packets` | Query packets of `uid`s with no answered transaction |
 | `mean_service_nanos` | Mean `rtt` of the complete transactions, in nanoseconds |
 
 The client is the local side, as everywhere. A campus resolver that queries outside servers therefore
-appears as a client, and the DNS family identifies and leaves out such servers as it always has.
+appears as a client, and the DNS family identifies and leaves out such servers as it always has. A
+transaction with no conn.log row has no Zeek flags, so its querier counts as local and its responder as
+remote; with `--local-nets` given, those networks still decide every IPv4 side.
 
 ## What differs from the original probe
 
@@ -127,7 +129,8 @@ Server ASNs, network names and countries come from an ip2asn-format TSV, given t
 `ioc-match` as `--asn-table` or `NETWORK_BEHAVIOUR_ASN_TABLE` (`source/zeek/asn.py`).
 
 - **Where to get it:** iptoasn.com publishes `ip2asn-v4.tsv` free. Each line is `range_start range_end
-  AS_number country_code AS_description`, tab-separated. The demo writes a synthetic one.
+  AS_number country_code AS_description`, tab-separated, with the addresses dotted or as unsigned 32-bit
+  integers. The demo writes a synthetic one.
 - **IPv4 only.** The loader reads only IPv4 ranges. AS 0 means unrouted and counts as no ASN, and an IPv6
   server carries none.
 - **Without it,** `asn` is empty on every row:
