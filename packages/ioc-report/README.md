@@ -120,7 +120,7 @@ Process environment values take precedence. `OLLAMA_URL` must be a loopback addr
 files hold internal addresses and domains. `NAME_LOOKUP=rdap` turns on the name check (see
 [Name check](#name-check-rdap)).
 
-An external model through OpenRouter is available with the academic lead's approval. Set
+An external model through OpenRouter is opt-in, and needs the approval of whoever owns the network's data. Set
 `MODEL_PROVIDER=openrouter`, `OPENROUTER_MODEL=anthropic/claude-haiku-5.5` (the evaluated model; see
 [Evaluating model verdicts](#evaluating-model-verdicts)) and `OPENROUTER_API_KEY` in `.env`. Before any text is sent, the case's
 internal host address is replaced with `HOST`. Every request asks OpenRouter for zero-retention,
@@ -402,10 +402,10 @@ Light and dark follow the system. Print uses light and opens every fold.
 - `e3-name`: E3 resting on a name of unknown age.
 
 **`output/<Threat> (<host>, <domain or address>).pdf`:** with `--case-reports` or `ioc-case-report`, one short
-report per review case for a reader outside the team's tools (see [Case reports](#case-reports)).
+report per review case for a reader who never sees the tool (see [Case reports](#case-reports)).
 
 **All of these files contain internal IP addresses, domains and per-host activity.** They are
-git-ignored. Do not share them outside the team, except a case report sent to the academic lead.
+git-ignored. Share them only with people already cleared to see the network's data.
 
 ## Evaluating model verdicts
 
@@ -592,8 +592,8 @@ planned, so no model verdict can be shown to be right where the rules are silent
    `tests/test_evals.py` pins the synthetic case files to catch a silent change, and the runner's
    cache is keyed by both, so a changed case file is never scored on old replies.
 
-**Budget:** the project has a fixed $5 of OpenRouter credit that will not be topped up. Every paid
-run should check the balance first.
+**Budget:** check the balance before any paid run, and pass `--budget`; a run stops before any call that
+could take its spend past it.
 
 ## Limits
 
@@ -652,7 +652,7 @@ run should check the balance first.
   folded under every card, so each sentence can be checked.
 - **Case reports are checked the same way, and read by someone who cannot check them.** The PDF
   shows no digest or case file, and the word check catches method language, not a wrong sentence.
-  Read each PDF against its audit file before submitting it.
+  Read each PDF against its audit file before sending it.
 - **The model's text is checked crudely.** The checks catch invented numbers, host-state words,
   contradicted shapes and unattributed threat labels. They do not catch every wrong sentence. The
   decision never depends on the summary.

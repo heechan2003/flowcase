@@ -1,6 +1,6 @@
-"""One short PDF per case, for a reader who knows nothing of how the team works: the academic lead,
-who marks only what is submitted. It says what the threat is, what the host did, why the case stays
-open or has an ordinary reason, and what to do next, and never how any of that was reached.
+"""One short PDF per case, for a reader who sees only the PDF and knows nothing of this tool. It
+says what the threat is, what the host did, why the case stays open or has an ordinary reason, and
+what to do next, and never how any of that was reached.
 
 It reads the JSON a run wrote, so a PDF cannot disagree with its report, costs no source query and
 still works once the source's minute window has passed. The decision is the one in that file. The

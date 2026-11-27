@@ -326,7 +326,7 @@ def _say_written(written: Sequence[Written], *, asked: bool) -> None:
         if asked and not narrative.by_model:
             print(
                 f"case report {found.number}: no reply passed the checks, so this PDF holds code's "
-                "plain text. Run it again, or edit it before submitting; its audit file says why.",
+                "plain text. Run it again, or edit it before sending it; its audit file says why.",
                 file=sys.stderr,
             )
         if not found.family_described:

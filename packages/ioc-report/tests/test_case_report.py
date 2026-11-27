@@ -950,7 +950,7 @@ def test_a_pdf_on_code_text_is_a_failure_the_tool_says_out_loud(
 
     assert case_main([str(saved), "--budget", "0.10"]) == 1
 
-    assert "before submitting" in capsys.readouterr().err
+    assert "before sending" in capsys.readouterr().err
 
 
 def test_a_wrong_case_number_stops_before_any_spend(

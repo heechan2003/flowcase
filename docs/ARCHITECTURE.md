@@ -114,7 +114,7 @@ Triage has no model. In ioc-report a model writes prose and nothing else.
 - **Case reports** (`case_report.py`) are for a reader who knows nothing of the tool. The decision is the
   one in the run's JSON. Haiku writes the paragraphs from a brief cut from the saved digest, with the blind
   verdict, the source tags, the rule codes and the thresholds taken out. The paragraphs pass the same checks,
-  plus their own, among them a word limit and no word that says how the team works. Code writes the title,
+  plus their own, among them a word limit and no word about how the analysis was done. Code writes the title,
   the facts line, the headings, the sources and the limits, and Typst renders the PDF.
 - **The second opinion is recorded, never applied.** With `--shadow N`, a model reads the blind case file
   (the decision and every per-contact outcome removed) and says `review` or `explained`, N times at a

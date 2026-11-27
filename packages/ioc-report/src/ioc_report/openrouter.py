@@ -1,4 +1,4 @@
-"""An external model through OpenRouter, for runs where the academic lead's approval applies.
+"""An external model through OpenRouter, for runs where an external model is approved.
 
 Off unless `MODEL_PROVIDER` or `SHADOW_PROVIDER` is `openrouter`, or a case report is asked for
 (`ioc-case-report`, `--case-reports`). Every request asks OpenRouter to route only to endpoints
