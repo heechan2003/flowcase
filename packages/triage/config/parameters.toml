@@ -212,7 +212,7 @@ status = "inherited-unjustified"
 value = [1048576, 10485760, 104857600, 1073741824]
 fitted_on = "inherited"
 target = ""
-effect = "Retained in baseline-calibration-v6. Measured 2026-09-08 over the 7-day median ending 2026-08-09 with the degenerate minutes dimension dropped: 18 of 25 bytes-by-destination bands occupied, largest 1,505 of 12,235 addresses (12.3%). CASE_STUDY §4."
+effect = "Retained in baseline-calibration-v6. Measured 2026-09-08 over the 7-day median ending 2026-08-09 with the degenerate minutes dimension dropped: 18 of 25 bytes-by-destination bands occupied; the largest holds 8,360 of 12,235 addresses (68.3%, under 5 destinations at 1-10 MiB a day) and the next 1,505 (12.3%). CASE_STUDY §4."
 status = "inherited-unjustified"
 
 [bands.minute_edges]

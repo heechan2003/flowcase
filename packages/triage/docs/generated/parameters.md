@@ -57,7 +57,7 @@ problem and the one this table exists to keep visible.
 
 | Parameter | Value | Fitted on | Target | Measured effect |
 |---|---|---|---|---|
-| `bands.byte_edges` | `1048576, 10485760, 104857600, 1073741824` | inherited | — | Retained in baseline-calibration-v6. Measured 2026-09-08 over the 7-day median ending 2026-08-09 with the degenerate minutes dimension dropped: 18 of 25 bytes-by-destination bands occupied, largest 1,505 of 12,235 addresses (12.3%). CASE_STUDY §4. |
+| `bands.byte_edges` | `1048576, 10485760, 104857600, 1073741824` | inherited | — | Retained in baseline-calibration-v6. Measured 2026-09-08 over the 7-day median ending 2026-08-09 with the degenerate minutes dimension dropped: 18 of 25 bytes-by-destination bands occupied; the largest holds 8,360 of 12,235 addresses (68.3%, under 5 destinations at 1-10 MiB a day) and the next 1,505 (12.3%). CASE_STUDY §4. |
 | `bands.destination_edges` | `5, 20, 100, 500` | inherited | — | Retained in baseline-calibration-v6. See bands.byte_edges for the current occupancy measurement; the two axes are used together as the band key. |
 | `baseline.long_days_max` | `90` | inherited | — | — |
 | `baseline.long_days_min` | `30` | inherited | — | — |
