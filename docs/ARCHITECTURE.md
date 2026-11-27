@@ -16,7 +16,7 @@ and `ioc_report/` is `packages/ioc-report/src/ioc_report/`.
 | Load | `network-behaviour load-zeek` | Zeek's conn, ssl, dns and weird logs; an ip2asn table | The source DuckDB: four `flow.*` tables |
 | Triage | `network-behaviour run-day`, or `backfill` for a range | The source, read-only; retained history from before the day | The retained store: `history.*`, and the day's stream in `feed.*`. `run-day` also prints the stream as JSONL |
 | Match | `ioc-match` | A ThreatFox export; the source | The IOC-match feed, and ThreatFox's own dates for each indicator |
-| Report | `ioc-report` | The feed; the source, live; the store, read-only | An HTML page, a Markdown copy and a JSON file |
+| Report | `ioc-report` | The feed; the source, live; the store, read-only | A Markdown report and a JSON file |
 | Case reports | `ioc-case-report`, or `ioc-report --case-reports` | That JSON file only | A PDF and an audit file per review case |
 
 `make demo` runs every step on a synthetic network and checks each planted case (`demo/README.md`).
@@ -59,7 +59,8 @@ One process writes at a time (`operations/locking.py`). The detector families ar
 4. **Review cases only:** what else the host did around its contact, and what was new after it (`live.py`,
    phases 2 and 3; `after.py`). The case file shows these; the decision never reads them.
 5. **Write-up.** Code writes each case file and digest (`casefile.py`, `digest.py`), the writer turns the
-   digests into prose (`narrative.py`), and the report is rendered (`report.py`, `html_report.py`).
+   digests into prose (`narrative.py`), and the Markdown and the JSON are written (`report.py`). The
+   Markdown leads each case with code's facts; the writer's overview is in the JSON.
 
 ### Where the packages meet
 
@@ -132,7 +133,7 @@ Triage has no model. In ioc-report a model writes prose and nothing else.
 | The source DuckDB (`data/source.duckdb`) | Minute rows with client and server addresses, TLS names and DNS names | Read-only to every reader. Nothing deletes a loaded day; with `NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS` set, readers treat older days as expired, as the original fifteen-day source did |
 | The retained store, `history.*` | Per address and day: counts, and each service as a 16-byte BLAKE2b hash. No raw domain, SNI, DNS or endpoint string | Cut to 365 days at every publication (`publication.py`) |
 | The retained store, `feed.*` | The published streams. An episode names its service's domain only when the service is keyed by domain and affected the decision (`feed/domain.py`) | Kept as published |
-| `output/` | ioc-report's pages, JSON and PDFs, with internal addresses and domains | Git-ignored. The HTML page loads nothing from anywhere else, and its Content-Security-Policy says so (`html_report.py`) |
+| `output/` | ioc-report's Markdown, JSON and PDFs, with internal addresses and domains | Git-ignored |
 
 The service hash has no secret: ioc-report hashes a name the same way to look it up (`history.py`). It
 keeps names out of the store's text; it cannot hide a name someone already knows.

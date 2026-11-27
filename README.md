@@ -31,11 +31,12 @@ here says so.
 4. **Decide.** `ioc-report` decides every match in code: `explained` only when an ordinary reason covers every
    contact with the flagged address and no rule keeps the case open, `review` otherwise. "Explained" is about
    the match, never about the host.
-5. **Write.** A model writes each case up from the facts code gathered, and code checks every reply. A failed
-   reply goes back, and after three tries code's own text stands. The result is an HTML report and, on
-   request, a one-page PDF for each case kept for review.
+5. **Write.** Code writes a Markdown report: per case, the decision and its reasons, every contact and how it
+   was judged, and the sourced facts behind it. A model writes the prose from those facts, and code checks
+   every reply; a failed reply goes back, and after three tries code's own text stands. A JSON file holds all
+   of it, and on request each case kept for review gets a one-page PDF.
 
-[`demo/sample-output/`](demo/sample-output/) holds one run's output on the demo's synthetic network: the HTML
+[`demo/sample-output/`](demo/sample-output/) holds one run's output on the demo's synthetic network: the Markdown
 report, one-page PDFs for three of its review cases, and one of those again with the paragraphs written by
 Claude Haiku.
 
@@ -52,7 +53,7 @@ flowchart TD
     store[("Retained store DuckDB<br/>daily episode streams<br/>365-day history, no raw names")]
     match["ioc-match"]
     feed[/"IOC-match feed"/]
-    out[/"HTML · Markdown · JSON report<br/>PDF per review case"/]
+    out[/"Markdown and JSON report<br/>PDF per review case"/]
     orr["OpenRouter · Haiku<br/>off the machine, opt-in<br/>zero-retention routing"]
     rdap["RDAP registration dates<br/>off the machine, opt-in"]
 
