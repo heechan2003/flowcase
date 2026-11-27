@@ -258,12 +258,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     model_label = "no model (--no-model)" if client is None else client.label
     name = args.name or args.feeds[0].stem
-    page, markdown, data = write_report(
+    markdown, data = write_report(
         args.out, name, feed, results, live, history, model_label, now, groups, summary
     )
     count = sum(1 for result in results if result.disposition == REVIEW)
     print(
-        f"wrote {page} (also {markdown.name} and {data.name}): {len(results)} case(s), "
+        f"wrote {markdown} (also {data.name}): {len(results)} case(s), "
         f"{count} review, {len(results) - count} explained"
     )
     if args.case_reports:

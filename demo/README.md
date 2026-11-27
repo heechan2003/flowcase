@@ -38,7 +38,7 @@ requires that case's disposition and its other rules.
 | load | `network-behaviour load-zeek` | the four source tables (`source.duckdb`) |
 | triage | `network-behaviour backfill` | one published day per day, into the retained store (`store.duckdb`) |
 | match | `ioc-match` | the IOC-match feed for the last three days (`matches.json`) |
-| report | `ioc-report --no-model --case-reports` | `report/demo.html`, `.md`, `.json`, and a PDF per review case |
+| report | `ioc-report --no-model --case-reports` | `report/demo.md`, `demo.json`, and a PDF per review case |
 | check | `demo/run.py` | compares every case with `expected.json`, and checks triage published every day and streamed the beacon host on each scenario day |
 
 No model runs and nothing leaves the machine. Every page holds code's own text. The RDAP cache holds
@@ -102,7 +102,7 @@ episode on the flagged destination itself. Three of the rows show how that plays
 
 ## Sample output
 
-`sample-output/` holds one run's HTML report (`demo.html`) and the PDFs for three review cases
+`sample-output/` holds one run's Markdown report (`demo.md`) and the PDFs for three review cases
 (`case-beacon.pdf`, `case-flagged-domain.pdf`, `case-download.pdf`). Everything in them was written by
 code, since the demo runs without a model. A run with a model changes only the PDFs' paragraphs, never
 a decision.

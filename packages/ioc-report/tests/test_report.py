@@ -8,10 +8,15 @@ from typing import Any
 import pytest
 
 from ioc_report import cli, registration
+from ioc_report.casefile import after_contact, next_steps, render_case_file
 from ioc_report.cli import main
+from ioc_report.digest import case_digest
 from ioc_report.model import OllamaClient, OllamaConfig
 from ioc_report.openrouter import OpenRouterClient
+from ioc_report.report import write_report
+from ioc_report.summary import CaseResult
 from tests.conftest import FIXTURES, minute_row, record, write_feed
+from tests.test_facts import VERDICT_WORDS, shaped
 from tests.test_openrouter import CONFIG, _listing, _Post
 
 FEED = FIXTURES / "ioc_matches_synthetic.json"
@@ -43,16 +48,15 @@ def test_a_facts_only_run_gives_every_case_an_overview_in_code(
 
     printed = capsys.readouterr().out
     assert "2 case(s), 1 review, 1 explained" in printed
-    assert printed.startswith(f"wrote {tmp_path / 'out' / 'ioc_matches_synthetic.html'} ")
-    page = (tmp_path / "out" / "ioc_matches_synthetic.html").read_text(encoding="utf-8")
-    assert page.count('<article class="case card"') == 2 and "<svg" not in page
-    for section in ("Executive summary", "Background", "Analysis", "Conclusion and next steps"):
-        assert f">{section}</h2>" in page
+    assert printed.startswith(f"wrote {tmp_path / 'out' / 'ioc_matches_synthetic.md'} ")
+    assert not list((tmp_path / "out").glob("*.html"))
     markdown = (tmp_path / "out" / "ioc_matches_synthetic.md").read_text(encoding="utf-8")
-    for section in ("Executive summary", "Analysis", "Cases", "Appendix"):
-        assert f"## {section}" in markdown
-    assert markdown.count("**How to read it.**") == 2
-    assert "### B. The checks behind every verdict" in markdown
+    for section in ("Summary", "Threats", "Cases", "Next steps by system", "Each case", "Appendix"):
+        assert f"\n## {section}\n" in markdown
+    assert markdown.count('<a id="case-') == 2 and markdown.count("**Why:**") == 2
+    assert "| From (UTC) | To | Source | What |" in markdown
+    assert "**How to read it.**" not in markdown and "[Decision, by code]" not in markdown
+    assert "### The checks behind every verdict" in markdown
     cases = {case["indicator"]: case for case in data["cases"]}
     review, explained = cases["tunnel.example.com"], cases["9.9.9.9:443"]
     assert (review["number"], explained["number"]) == (1, 2)
@@ -145,7 +149,7 @@ def test_several_feed_files_need_a_name_and_make_one_report(
     explained = [case for case in data["cases"] if case["disposition"] == "explained"]
     assert all(case["caveats"] and case["registrations"] is None for case in explained)
     markdown = (tmp_path / "out" / "export.md").read_text(encoding="utf-8")
-    assert "with caveats" in markdown and "**What it could not check**" in markdown
+    assert "with caveats" in markdown and "**Could not check:**" in markdown
 
 
 def test_no_name_is_looked_up_unless_asked(
@@ -199,6 +203,59 @@ def test_a_run_without_the_live_source_advises_by_the_source_s_retention(
     monkeypatch.setenv("NETWORK_BEHAVIOUR_SOURCE_DETAIL_DAYS", detail_days)
     _run(tmp_path, store_path, monkeypatch, "out", "--no-model")
 
-    page = (tmp_path / "out" / "ioc_matches_synthetic.html").read_text(encoding="utf-8")
-    assert advice in page
-    assert not_said not in page
+    markdown = (tmp_path / "out" / "ioc_matches_synthetic.md").read_text(encoding="utf-8")
+    assert advice in markdown
+    assert not_said not in markdown
+
+
+DISCLAIMER = "no case says a host is compromised, infected or benign"
+
+
+def _markdown(tmp_path: Path) -> str:
+    """The report for one shaped review case, written as a run writes it."""
+    case = shaped(tmp_path)
+    evidence, decision = case.evidence, case.decision
+    result = CaseResult(
+        evidence,
+        decision,
+        render_case_file(evidence, decision, case.live, case.history),
+        next_steps=next_steps(evidence, decision, after_contact(evidence, case.live, case.history)),
+        digest=case_digest(evidence, decision, case.live, case.history),
+    )
+    markdown, _data = write_report(
+        tmp_path / "run",
+        "synthetic",
+        case.feed,
+        [result],
+        case.live,
+        case.history,
+        "test",
+        datetime(2026, 10, 22, 1, 0, tzinfo=UTC),
+    )
+    return markdown.read_text(encoding="utf-8")
+
+
+def test_the_markdown_carries_its_marking_and_points_to_the_json(tmp_path: Path) -> None:
+    markdown = _markdown(tmp_path)
+
+    assert "Sensitive: internal addresses and domains" in markdown
+    assert "the case files are in `synthetic.json`" in markdown
+
+
+def test_no_verdict_words_beyond_the_disclaimer(tmp_path: Path) -> None:
+    markdown = _markdown(tmp_path)
+    text = markdown.replace(DISCLAIMER, "").lower()
+
+    assert DISCLAIMER in markdown
+    assert not [word for word in VERDICT_WORDS if word in text]
+
+
+def test_a_case_shows_its_reasons_contacts_and_sourced_facts(tmp_path: Path) -> None:
+    markdown = _markdown(tmp_path)
+    case = markdown[markdown.index('<a id="case-1">') :]
+
+    assert case.index("**Why:**") < case.index("| From (UTC) |") < case.index("**What happened**")
+    assert "[Live source] Just before the contact" in case
+    assert "natureland.example, 1.0 min later" in case
+    assert "**Next steps:**" in case and "**Would change it:**" in case
+    assert "Knowledge, background not evidence" not in case
